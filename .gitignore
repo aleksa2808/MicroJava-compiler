@@ -1,0 +1,14 @@
+.idea/
+.settings/
+
+bin/
+logs/
+
+src/**/MJParser.java
+src/**/Yylex.java
+src/**/Yylex.java~
+src/**/sym.java
+
+.classpath
+.project
+MJCompiler.iml

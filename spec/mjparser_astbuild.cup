@@ -1,0 +1,197 @@
+package ppdz;
+import java_cup.runtime.*;
+import java.io.*;
+import ppdz.ast.*;
+
+parser code {:
+
+
+    /***********************************************************************
+    * slede redefinisani metodi za prijavu gresaka radi izmene teksta poruke
+    ***********************************************************************/
+    public void report_fatal_error(String message, Object   info) throws java.lang.Exception {
+      done_parsing();
+      report_error(message, info);
+    }
+
+    public void syntax_error(Symbol cur_token) {
+        report_error("\nSintaksna greska", cur_token);
+    }
+
+    public void unrecovered_syntax_error(Symbol cur_token) throws java.lang.Exception {
+        report_fatal_error("Fatalna greska, parsiranje se ne moze nastaviti", cur_token);
+    }
+
+  public void report_error(String message, Object info)
+    {
+      System.err.print(message);
+      System.err.flush();
+      if (info instanceof Symbol)
+	        System.err.println(" u liniji " + ((Symbol)info).left);
+      else System.err.println("");
+    }
+
+:}
+
+
+terminal PLUS, MINUS, TIMES, DIV;
+terminal EQUAL, SEMI, COMMA, LPAREN;
+terminal RPAREN, LSQUARE, RSQUARE, LBRACE, RBRACE, CLASS;
+terminal PRINT, RETURN, VOID, FINAL, NEW;
+terminal int NUMBER;
+terminal char CHARCONST;
+terminal String IDENT;
+
+nonterminal Program program;
+nonterminal Declaration_list declaration_list;
+nonterminal Method_declaration_list method_declaration_list;
+nonterminal Var_dec var_dec;
+nonterminal Rhs rhs;
+nonterminal Var_list var_list;
+nonterminal Var_part var_part;
+nonterminal Const_dec const_dec;
+nonterminal Method_dec method_dec;
+nonterminal Form_pars form_pars;
+nonterminal Stmt_list stmt_list;
+nonterminal Parameter parameter;
+nonterminal Statement statement;
+nonterminal Act_pars act_pars;
+nonterminal Local_var_list local_var_list;
+nonterminal Addop addop;
+nonterminal Mulop mulop;
+nonterminal Parameter_list parameter_list;
+nonterminal Declaration_part declaration_part;
+nonterminal  Type type;
+nonterminal  Expr expr;
+nonterminal Expr_list expr_list;
+nonterminal Term_list term_list;
+nonterminal Term term;
+nonterminal Factor factor;
+nonterminal Factor_list factor_list;
+nonterminal  Designator designator;
+nonterminal Ident_expr_list ident_expr_list;
+nonterminal Prog_id prog_id;
+nonterminal Return_type_ident return_type_ident;
+
+program ::= (Program) CLASS prog_id:o declaration_list:d1 LBRACE method_declaration_list:m2 RBRACE {: RESULT=new Program(o, d1, m2); RESULT.setLine(oleft); :};
+
+prog_id ::= (Prog_id) IDENT: id {: RESULT=new Prog_id(id); RESULT.setLine(idleft); :};
+
+declaration_list ::= (Declarations) declaration_list:d1 declaration_part:d2 {: RESULT=new Declarations(d1, d2); RESULT.setLine(d1left); :}
+			   |
+			   (NoDeclarations) {: RESULT=new NoDeclarations(); :}/* epsilon */;
+
+declaration_part ::= (ConstDeclaration) const_dec:c1 {: RESULT=new ConstDeclaration(c1); RESULT.setLine(c1left); :}
+	               |
+	              (VarDeclaration) var_dec:v1 {: RESULT=new VarDeclaration(v1); RESULT.setLine(v1left); :};
+
+const_dec ::= (Const_dec) FINAL type:t1 IDENT:I2 EQUAL rhs:r3 SEMI {: RESULT=new Const_dec(t1, I2, r3); RESULT.setLine(t1left); :};
+
+type ::= (Type) IDENT: id {: RESULT=new Type(id); RESULT.setLine(idleft); :};
+
+rhs ::= (IntInitializer) NUMBER:N1 {: RESULT=new IntInitializer(N1); RESULT.setLine(N1left); :}
+	  |
+	 (CharInitializer) CHARCONST:C1 {: RESULT=new CharInitializer(C1); RESULT.setLine(C1left); :};
+
+var_dec ::= (Var_dec) type: t  var_list:v1 SEMI {: RESULT=new Var_dec(t, v1); RESULT.setLine(tleft); :};
+
+var_list ::= (VarIdList) var_list:v1 COMMA var_part:v2 {: RESULT=new VarIdList(v1, v2); RESULT.setLine(v1left); :}
+		 |
+ 		(VarOrArrayId) var_part:v1 {: RESULT=new VarOrArrayId(v1); RESULT.setLine(v1left); :};
+
+var_part ::= (VarId) IDENT: id {: RESULT=new VarId(id); RESULT.setLine(idleft); :}
+		 |
+		(VarArrayId) IDENT: id LSQUARE RSQUARE {: RESULT=new VarArrayId(id); RESULT.setLine(idleft); :};
+
+local_var_list ::= (LocalVars) local_var_list:l1 var_dec:v2 {: RESULT=new LocalVars(l1, v2); RESULT.setLine(l1left); :}
+	         	   |
+	            (NoLocalVars) {: RESULT=new NoLocalVars(); :} /* epsilon */;
+
+method_declaration_list ::= (Methods) method_declaration_list:m1 method_dec:m2 {: RESULT=new Methods(m1, m2); RESULT.setLine(m1left); :}
+		      	    |
+		      	    (NoMethods) {: RESULT=new NoMethods(); :} /* epsilon */;
+
+return_type_ident ::= (ReturnType) type:t IDENT:id {: RESULT=new ReturnType(t, id); RESULT.setLine(tleft); :}
+		        |
+		       (VoidRetType) VOID IDENT:id {: RESULT=new VoidRetType(id); RESULT.setLine(idleft); :};
+
+method_dec ::= (Method_dec) return_type_ident:o LPAREN form_pars:f1 RPAREN local_var_list:l2 LBRACE
+               stmt_list:s3 RBRACE {: RESULT=new Method_dec(o, f1, l2, s3); RESULT.setLine(oleft); :};
+
+form_pars ::= (FormalParams) parameter_list:p1 {: RESULT=new FormalParams(p1); RESULT.setLine(p1left); :}
+	        |
+	       (NoFormalParams) {: RESULT=new NoFormalParams(); :} /* epsilon */;
+
+parameter_list ::= (FormalParameters) parameter_list:p1 COMMA parameter:p2 {: RESULT=new FormalParameters(p1, p2); RESULT.setLine(p1left); :}
+	             |
+	            (FormalParameter) parameter:p1 {: RESULT=new FormalParameter(p1); RESULT.setLine(p1left); :};
+
+parameter ::= (ScalarParameter) type:t1 IDENT:I2 {: RESULT=new ScalarParameter(t1, I2); RESULT.setLine(t1left); :}
+	  	  |
+		 (ArrayParameter) type:t1 IDENT:I2 LSQUARE RSQUARE {: RESULT=new ArrayParameter(t1, I2); RESULT.setLine(t1left); :};
+
+
+stmt_list ::= (Statements) stmt_list:s1 statement:s2 {: RESULT=new Statements(s1, s2); RESULT.setLine(s1left); :}
+	        |
+	       (NoStatements) {: RESULT=new NoStatements(); :} /* epsilon */;
+
+statement ::= (Assignment) designator:o EQUAL expr:t SEMI {: RESULT=new Assignment(o, t); RESULT.setLine(oleft); :}
+		      |
+	       (ProcCallStatement) designator:o LPAREN RPAREN SEMI {: RESULT=new ProcCallStatement(o); RESULT.setLine(oleft); :}
+		      |
+	       (FuncCallStatement) designator:o LPAREN act_pars:a1 RPAREN SEMI {: RESULT=new FuncCallStatement(o, a1); RESULT.setLine(oleft); :}
+		      |
+	       (ReturnNoExpr) RETURN:dummy SEMI {: RESULT=new ReturnNoExpr(); :} // dummy samo zbog broja linije, nema semant. vrednost
+	              |
+	       (Return) RETURN:dummy expr:t SEMI {: RESULT=new Return(t); RESULT.setLine(tleft); :} // dummy samo zbog broja linije, nema semant. vrednost
+	   	      |
+	       (Print) PRINT LPAREN expr:t RPAREN SEMI {: RESULT=new Print(t); RESULT.setLine(tleft); :};
+
+designator ::= (Designator) ident_expr_list:o {: RESULT=new Designator(o); RESULT.setLine(oleft); :};
+
+ident_expr_list ::= (ArrayDesignator) ident_expr_list: o  LSQUARE
+                    expr:e1 RSQUARE {: RESULT=new ArrayDesignator(o, e1); RESULT.setLine(oleft); :}
+	              |
+	             (SimpleDesignator) IDENT: id {: RESULT=new SimpleDesignator(id); RESULT.setLine(idleft); :};
+
+addop ::= (PlusOp) PLUS {: RESULT=new PlusOp(); :}
+	    |
+	   (MinusOp) MINUS {: RESULT=new MinusOp(); :};
+
+mulop ::= (TimesOp) TIMES {: RESULT=new TimesOp(); :}
+	    |
+       (DivOp) DIV {: RESULT=new DivOp(); :};
+
+act_pars ::= (Act_pars) expr_list:e1 {: RESULT=new Act_pars(e1); RESULT.setLine(e1left); :};
+
+expr_list ::= (Expressions) expr_list:e1 COMMA expr:e2 {: RESULT=new Expressions(e1, e2); RESULT.setLine(e1left); :}  // stvarni parametri nisu implementirani, pa da ne ostanu na steku
+	        |
+	       (Expression) expr:e1 {: RESULT=new Expression(e1); RESULT.setLine(e1left); :}; // stvarni parametri nisu implementirani, pa da ne ostanu na steku
+
+expr ::= (Expr) term_list:t {: RESULT=new Expr(t); RESULT.setLine(tleft); :};
+
+term_list ::= (AddExpr) term_list:t1 addop:a2 term:t3 {: RESULT=new AddExpr(t1, a2, t3); RESULT.setLine(t1left); :}
+	        |
+	       (TermExpr) term:t {: RESULT=new TermExpr(t); RESULT.setLine(tleft); :};
+
+term ::= (Term) factor_list:t {: RESULT=new Term(t); RESULT.setLine(tleft); :};
+
+factor_list ::= (MulopFactor) factor_list:t mulop:m1 factor:f2 {: RESULT=new MulopFactor(t, m1, f2); RESULT.setLine(tleft); :}
+	          |
+	         (SimpleFactor) factor:t {: RESULT=new SimpleFactor(t); RESULT.setLine(tleft); :}
+                  |
+            	 (MinusFactor) MINUS factor:f1 {: RESULT=new MinusFactor(f1); RESULT.setLine(f1left); :};
+
+factor ::= (FuncCall) designator:o LPAREN act_pars:a1 RPAREN {: RESULT=new FuncCall(o, a1); RESULT.setLine(oleft); :}
+           |
+           (VarRef) designator:o {: RESULT=new VarRef(o); RESULT.setLine(oleft); :}
+           |
+           (ArrayRef) designator:o LPAREN RPAREN {: RESULT=new ArrayRef(o); RESULT.setLine(oleft); :}
+           |
+           (IntRef) NUMBER:i {: RESULT=new IntRef(i); RESULT.setLine(ileft); :}
+           |
+           (CharRef) CHARCONST:c {: RESULT=new CharRef(c); RESULT.setLine(cleft); :}
+           |
+           (OperatorNew) NEW type:t LSQUARE expr:t1 RSQUARE {: RESULT=new OperatorNew(t, t1); RESULT.setLine(tleft); :}
+           |
+           (ParenthesisExpr) LPAREN expr:t RPAREN {: RESULT=new ParenthesisExpr(t); RESULT.setLine(tleft); :};
