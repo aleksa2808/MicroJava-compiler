@@ -13,6 +13,29 @@ import java_cup.runtime.Symbol;
 		private Symbol new_symbol(int type, Object value) {
 				return new Symbol(type, yyline+1, yycolumn, value);
 		}
+
+		private int lastErrLinePos = -1;
+		private int lastErrColPos = -1;
+		private String lastError = "";
+		private int lastErrLine = -1;
+		private int lastErrCol = -1;
+
+		private void handleError(String s, boolean end) {
+		    if (!end && lastErrLinePos == yyline+1 && lastErrColPos == yycolumn) {
+                lastError += s;
+		    } else {
+                if (!lastError.equals("")) {
+                    System.out.println("ERROR: Leksicka greska (" + lastError + ") u liniji " + lastErrLine + " na koloni " + lastErrCol);
+                }
+
+                lastError = s;
+                lastErrLine = yyline+1;
+                lastErrCol = yycolumn+1;
+		    }
+
+		    lastErrLinePos = yyline+1;
+		    lastErrColPos = yycolumn+1;
+		}
 %}
 
 %cup
@@ -22,6 +45,7 @@ import java_cup.runtime.Symbol;
 %xstate COMMENT
 
 %eofval{
+    handleError("", true);
     return new_symbol(sym.EOF);
 %eofval}
 
@@ -67,11 +91,6 @@ import java_cup.runtime.Symbol;
 "||"        { return new_symbol(sym.OP_OR, yytext()); }
 
 "="         { return new_symbol(sym.ASSIGN, yytext()); }
-"+="        { return new_symbol(sym.ASSIGN_ADD, yytext()); }
-"-="        { return new_symbol(sym.ASSIGN_SUB, yytext()); }
-"*="        { return new_symbol(sym.ASSIGN_MUL, yytext()); }
-"/="        { return new_symbol(sym.ASSIGN_DIV, yytext()); }
-"%="        { return new_symbol(sym.ASSIGN_MOD, yytext()); }
 
 "++"        { return new_symbol(sym.OP_INC, yytext()); }
 "--"        { return new_symbol(sym.OP_DEC, yytext()); }
@@ -96,4 +115,8 @@ import java_cup.runtime.Symbol;
 [0-9]+ { return new_symbol(sym.NUM_CONST, new Integer(yytext())); }
 ([a-z]|[A-Z])[a-z|A-Z|0-9|_]* { return new_symbol(sym.IDENT, yytext()); }
 "'"[\040-\176]"'" { return new_symbol(sym.CHAR_CONST, new Character(yytext().charAt(1))); }
-. { System.err.println("Leksicka greska (" + yytext() + ") u liniji " + (yyline+1)); }
+
+.
+{
+    handleError(yytext(), false);
+}

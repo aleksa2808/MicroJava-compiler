@@ -4,6 +4,8 @@
 bin/
 logs/
 
+src/rs/ac/bg/etf/pp1/ast/
+
 src/**/MJParser.java
 src/**/Yylex.java
 src/**/Yylex.java~

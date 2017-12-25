@@ -1,0 +1,28 @@
+program test
+
+const char c = 'c';
+int a;
+{
+	void f(int p1, char p2, bool p3)
+	int local;
+	{
+		if(p3)
+		{
+			for(local = 0; local < -p1 && local >= 0; local++)
+				print(p2);
+		}
+	}
+	
+	void main() 
+	{
+		a = -4;
+		print(a);
+		print(eol);
+		print(c);
+		print(eol);
+		
+		f(a, c, true); 
+			
+	}
+}
+

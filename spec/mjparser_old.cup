@@ -1,0 +1,627 @@
+package rs.ac.bg.etf.pp1;
+
+import java_cup.runtime.*;
+import java.io.*;
+import org.apache.log4j.*;
+//import rs.ac.bg.etf.pp1.ast.*;
+
+import rs.etf.pp1.symboltable.Tab;
+import rs.etf.pp1.symboltable.concepts.*;
+
+
+parser code {:
+    int printCallCount = 0;
+    boolean errorDetected = false;
+
+    Logger log = Logger.getLogger(getClass());
+
+    /***********************************************************************
+    * slede redefinisani metodi za prijavu gresaka radi izmene teksta poruke
+    ***********************************************************************/
+    public void report_fatal_error(String message, Object info) throws java.lang.Exception {
+        done_parsing();
+        report_error(message, info);
+    }
+
+    public void syntax_error(Symbol cur_token) {
+        report_error("\nSintaksna greska", cur_token);
+    }
+
+    public void unrecovered_syntax_error(Symbol cur_token) throws java.lang.Exception {
+        report_fatal_error("Fatalna greska, parsiranje se ne moze nastaviti", cur_token);
+    }
+
+    public void report_error(String message, Object info) {
+        errorDetected = true;
+        StringBuilder msg = new StringBuilder(message);
+        if (info instanceof Symbol)
+            msg.append(" na liniji ").append(((Symbol)info).left);
+        log.error(msg.toString());
+    }
+
+    public void report_info(String message, Object info) {
+        StringBuilder msg = new StringBuilder(message);
+        if (info instanceof Symbol)
+            msg.append(" na liniji ").append(((Symbol)info).left);
+        log.info(msg.toString());
+    }
+:}
+
+scan with {:
+    Symbol s = this.getScanner().next_token();
+//    if (s != null && s.value != null)
+//        log.info(s.toString() + " " + s.value.toString());
+    return s;
+:}
+
+action code {:
+    Obj currentMethod = null;
+    Obj currentClass = null;
+    boolean returnFound = false;
+    Struct curType = null;
+
+    static class TabExt {
+        static Struct boolType = new Struct(1005); // zasto moramo da hardkodujemo...
+    }
+:}
+
+init with {:
+    Tab.init(); // Universe scope
+:}
+
+terminal PROG, BREAK, CLASS, ELSE, IF, NEW, PRINT, READ, RETURN, VOID, DO, WHILE, EXTENDS, CONTINUE, CONST;
+terminal String IDENT;
+terminal Integer NUM_CONST;
+terminal Character CHAR_CONST;
+terminal String BOOL_CONST;
+terminal OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD, OP_EQ, OP_NEQ, OP_GRE, OP_GEQ, OP_LES, OP_LEQ, OP_AND, OP_OR;
+terminal ASSIGN;
+terminal OP_INC, OP_DEC;
+terminal SEMI, COMMA, DOT;
+terminal LPAREN, RPAREN, LSQUARE, RSQUARE, LBRACE, RBRACE;
+
+non terminal Program, DeclList, Decl;
+non terminal ConstDecl, ConstDeclMore, ConstValAssign;
+non terminal VarDecl, VarDeclDefine, OptArrayIndicator, VarDeclMore;
+non terminal ClassDecl, OptExtendsIndicator, OptBracedMethodDeclList, MethodDeclList;
+non terminal MethodDecl, OptFormPars, VarDeclList, StatementList;
+non terminal FormPars, FormParDecl;
+non terminal Statement, OptElseBranch, OptPrintMore;
+non terminal DesignatorStatement, OptActPars;
+non terminal ActPars;
+non terminal Condition;
+non terminal CondTerm;
+non terminal CondFact;
+non terminal OptNeg, TermMore;
+non terminal OptParenActPars, OptArrayExpr;
+non terminal DesignatorMore, DesignatorMoreChoice;
+non terminal Relop;
+non terminal Addop;
+non terminal Mulop;
+
+non terminal Obj ProgName, ConstVal, Designator;
+non terminal Struct Type, VoidableType, Term, Expr, OptExpr, Factor;
+
+precedence left ELSE;
+
+
+/***********************************************************************************
+* Program = ʺprogramʺ ident {ConstDecl | VarDecl | ClassDecl} ʺ{ʺ {MethodDecl} ʺ}ʺ *
+***********************************************************************************/
+Program ::= {:
+                Tab.insert(Obj.Type, "bool", TabExt.boolType);
+            :}
+            PROG ProgName:p
+            DeclList LBRACE MethodDeclList RBRACE
+            {:
+                Tab.chainLocalSymbols(p);
+                Tab.closeScope();
+            :}
+            ;
+
+ProgName ::= IDENT:pName
+             {:
+                RESULT = Tab.insert(Obj.Prog, pName, Tab.noType);
+                Tab.openScope();
+             :}
+             ;
+
+DeclList ::= DeclList Decl
+             |
+             /* epsilon */
+             ;
+
+Decl ::= ConstDecl
+         |
+         VarDecl
+         |
+         ClassDecl
+         ;
+
+/***************************************************************************************************************************
+* ConstDecl = ʺconstʺ Type identʺ=ʺ(numConst | charConst | boolConst) {, ident ʺ=ʺ (numConst | charConst | boolConst)} ʺ;ʺ *
+***************************************************************************************************************************/
+ConstDecl ::= CONST Type:conType
+              {:
+                curType = conType;
+              :}
+              ConstValAssign ConstDeclMore SEMI
+              {:
+                curType = null;
+              :}
+              ;
+
+ConstValAssign ::= IDENT:conName ASSIGN ConstVal:conVal
+                   {:
+                   //    Obj p = Tab.find(conName);
+
+                       if (conVal.getType().equals(curType))
+                       {
+                           parser.report_info("Deklarisana konstanta " + conName + " na liniji " + conNameleft, null);
+                           Obj constObj = Tab.insert(Obj.Con, conName, curType);
+                           constObj.setAdr(conVal.getAdr());
+                       }
+                       else
+                       {
+                           parser.report_error("Greska na liniji " + conNameleft + ": Nekompatibilni tipovi podataka ", null);
+                       }
+                   :}
+                   ;
+
+ConstVal ::= NUM_CONST:numConst
+             {:
+                RESULT = new Obj(Obj.Con, numConst.toString(), Tab.intType, numConst, Obj.NO_VALUE);
+             :}
+             |
+             CHAR_CONST:charConst
+             {:
+                RESULT = new Obj(Obj.Con, charConst.toString(), Tab.charType, charConst, Obj.NO_VALUE);
+             :}
+             |
+             BOOL_CONST:boolConst
+             {:
+                RESULT = new Obj(Obj.Con, boolConst, TabExt.boolType, Boolean.valueOf(boolConst) ? 1 : 0, Obj.NO_VALUE);
+             :}
+             ;
+
+ConstDeclMore ::= ConstDeclMore COMMA ConstValAssign
+                  |
+                  /* epsilon */
+                  ;
+
+/***********************************************************
+* VarDecl = Type ident [ʺ[ʺ ʺ]ʺ] {ʺ,ʺ ident [ʺ[ʺ ʺ]ʺ]} ʺ;ʺ *
+***********************************************************/
+VarDecl ::= Type:varType
+            {:
+                curType = varType;
+            :}
+            VarDeclDefine VarDeclMore SEMI
+            {:
+                curType = null;
+            :}
+            ;
+
+VarDeclDefine ::= IDENT:varName OptArrayIndicator//: is it array?
+                  {:
+                      parser.report_info("Deklarisana promenljiva " + varName + " na liniji " + varNameleft, null);
+                      Obj temp = Tab.find(varName);
+                      // if (temp)
+                      Tab.insert(Obj.Var, varName, curType);
+                  :}
+                  ;
+
+OptArrayIndicator ::= LSQUARE RSQUARE
+                      {:
+                        // RESULT = Tab. array
+                      :}
+                      |
+                      /* epsilon */
+                      {:
+                        // RESULT = Tab. not array
+                      :}
+                      ;
+
+VarDeclMore ::= VarDeclMore COMMA VarDeclDefine
+                |
+                /* epsilon */
+                ;
+
+/*************************************************************************************
+* ClassDecl = ʺclassʺ ident [ʺextendsʺ Type] ʺ{ʺ{VarDecl} [ʺ{ʺ {MethodDecl} ʺ}ʺ] ʺ}ʺ *
+*************************************************************************************/
+ClassDecl ::= CLASS IDENT:className OptExtendsIndicator LBRACE
+              {:
+                  if (currentClass != null)
+                  {
+                      // klasa unutar klase
+                  }
+
+                  //Obj temp = Tab.find(className);
+                  // if (temp)
+                  currentClass = Tab.insert(Obj.Type, className, new Struct(Struct.Class));
+                  Tab.openScope();
+                  parser.report_info("Obradjuje se klasa " + className + "  na liniji " + classNameleft, null);
+              :}
+              DeclList OptBracedMethodDeclList RBRACE
+              {:
+                  if (currentClass != null)
+                  {
+                      Tab.chainLocalSymbols(currentClass);
+                  }
+
+                  Tab.closeScope();
+                  currentClass = null;
+              :}
+              ;
+
+OptExtendsIndicator ::= EXTENDS Type
+                        |
+                        /* epsilon */
+                        ;
+
+OptBracedMethodDeclList ::= LBRACE MethodDeclList RBRACE
+                            |
+                            /* epsilon */
+                            ;
+
+MethodDeclList ::= MethodDeclList MethodDecl
+                   |
+                   /* epsilon */
+                   ;
+
+/**************************************************************************************
+* MethodDecl = (Type | ʺvoidʺ) ident ʺ(ʺ [FormPars] ʺ)ʺ {VarDecl} ʺ{ʺ {Statement} ʺ}ʺ *
+***************************************************************************************/
+MethodDecl ::= VoidableType:retType IDENT:methName
+               {:
+                    currentMethod = Tab.insert(Obj.Meth, methName, retType);
+                    Tab.openScope();
+                    parser.report_info("Obradjuje se funkcija " + methName + "  na liniji " + methNameleft, null);
+
+                    if (currentClass != null)
+                    {
+                        Tab.insert(Obj.Var, "this", currentClass.getType());
+                    }
+               :}
+               LPAREN OptFormPars RPAREN VarDeclList LBRACE StatementList RBRACE
+               {:
+                    if (!returnFound && retType != Tab.noType)
+                    {
+                        parser.report_error("Semanticka greska na liniji " + methNameleft + ": Funkcija " + methName + " nema return iskaz!", null);
+                    }
+
+                    Tab.chainLocalSymbols(currentMethod);
+                    Tab.closeScope();
+
+                    returnFound = false;
+                    currentMethod = null;
+               :}
+               ;
+
+VoidableType ::= Type:type
+                 {: RESULT = type; :}
+                 |
+                 VOID
+                 {: RESULT = Tab.noType; :}
+                 ;
+
+OptFormPars ::= FormPars
+                |
+                /* epsilon */
+                ;
+
+VarDeclList ::= VarDeclList VarDecl
+                |
+                /* epsilon */
+                ;
+
+StatementList ::= StatementList Statement
+                  |
+                  /* epsilon */
+                  ;
+
+/*************************************************************
+* FormPars = Type ident [ʺ[ʺ ʺ]ʺ] {ʺ,ʺ Type ident [ʺ[ʺ ʺ]ʺ]} *
+**************************************************************/
+FormPars ::= FormPars COMMA FormParDecl
+             |
+             FormParDecl
+             ;
+
+FormParDecl ::= Type:parType IDENT:parName OptArrayIndicator
+                {:
+                //    Obj p = Tab.find(parName);
+                    parser.report_info("Deklarisan formalni parametar " + parName + " na liniji " + parNameleft, null);
+                    Tab.insert(Obj.Var, parName, parType);
+                :};
+
+/***************
+* Type = ident *
+****************/
+Type ::= IDENT:typeName
+         {:
+             Obj typeNode = Tab.find(typeName);
+             if (typeNode == Tab.noObj)
+             {
+                 parser.report_error("Nije pronadjen tip " + typeName + " u tabeli simbola", null);
+                 RESULT = Tab.noType;
+             }
+             else
+             {
+                 if (Obj.Type == typeNode.getKind())
+                 {
+                     RESULT = typeNode.getType();
+                 }
+                 else
+                 {
+                     parser.report_error("Greska na liniji " + typeNameleft + ": Ime " + typeName + " ne predstavlja tip ", null);
+                     RESULT = Tab.noType;
+                 }
+             }
+         :}
+         ;
+
+/******************************************************************
+* Statement = DesignatorStatement ʺ;ʺ                             *
+*           | ʺifʺ ʺ(ʺ Condition ʺ)ʺ Statement [ʺelseʺ Statement] *
+*           | ʺdoʺ Statement ʺwhileʺ ʺ(ʺ Condition ʺ)ʺ ʺ;ʺ        *
+*           | ʺbreakʺ ʺ;ʺ                                         *
+*           | ʺcontinueʺ ʺ;ʺ                                      *
+*           | ʺreturnʺ [Expr] ʺ;ʺ                                 *
+*           | ʺreadʺ ʺ(ʺ Designator ʺ)ʺ ʺ;ʺ                       *
+*           | ʺprintʺ ʺ(ʺ Expr [ʺ,ʺ numConst] ʺ)ʺ ʺ;ʺ             *
+*           | ʺ{ʺ {Statement} ʺ}ʺ                                 *
+******************************************************************/
+Statement ::= DesignatorStatement SEMI
+            |
+            IF LPAREN Condition RPAREN Statement OptElseBranch
+            |
+            DO Statement WHILE LPAREN Condition RPAREN SEMI
+            |
+            BREAK SEMI
+            |
+            CONTINUE SEMI
+            |
+            RETURN OptExpr:retType SEMI
+            {:
+                returnFound = true;
+                Struct currMethType = currentMethod.getType();
+                if (!currMethType.compatibleWith(retType))
+                {
+                    parser.report_error("Greska na liniji " + retTypeleft + ": Tip izraza u return naredbi ne slaze se sa tipom povratne vrednosti funkcije " + currentMethod.getName(), null);
+                }
+            :}
+            |
+            READ LPAREN Designator RPAREN SEMI
+            |
+            PRINT LPAREN Expr OptPrintMore RPAREN SEMI
+            {: this.parser.printCallCount++; :}
+            |
+            LBRACE StatementList RBRACE
+            ;
+
+OptElseBranch ::= ELSE Statement
+                  |
+                  /* epsilon */
+                  ;
+
+OptExpr ::= Expr:exprType
+            {: RESULT = exprType; :}
+            |
+            /* epsilon */
+            {: RESULT = Tab.noType; // void? :}
+            ;
+
+OptPrintMore ::= COMMA NUM_CONST
+                 |
+                 /* epsilon */
+                 ;
+
+/*******************************************************************************
+* DesignatorStatement = Designator (ʺ=ʺ Expr | ʺ(ʺ [ActPars] ʺ)ʺ | ʺ++ʺ | ʺ‐‐ʺ) *
+*******************************************************************************/
+DesignatorStatement ::= Designator:dst ASSIGN Expr:srcType
+                        {:
+                            if (srcType.assignableTo(dst.getType()))
+                            {
+                                parser.report_error("Greska na liniji " + dstleft + ": Nekompatibilni tipovi u dodeli vrednosti ", null);
+                            }
+                        :}
+                        |
+                        Designator:func LPAREN OptActPars RPAREN
+                        {:
+                            if (Obj.Meth == func.getKind())
+                            {
+                                parser.report_info("Pronadjen poziv funkcije " + func.getName() + " na liniji " + funcleft, null);
+                            }
+                        :}
+                        |
+                        Designator OP_INC
+                        |
+                        Designator OP_DEC
+                        ;
+
+OptActPars ::= ActPars
+               |
+               /* epsilon */
+               ;
+
+/****************************
+* ActPars = Expr {ʺ,ʺ Expr} *
+****************************/
+ActPars ::= ActPars COMMA Expr
+            |
+            Expr
+            ;
+
+/***************************************
+* Condition = CondTerm {ʺ||ʺ CondTerm} *
+***************************************/
+Condition ::= Condition OP_OR CondTerm
+              |
+              CondTerm
+              ;
+
+/**************************************
+* CondTerm = CondFact {ʺ&&ʺ CondFact} *
+**************************************/
+CondTerm ::= CondTerm OP_AND CondFact
+             |
+             CondFact
+             ;
+
+/*******************************
+* CondFact = Expr [Relop Expr] *
+*******************************/
+CondFact ::= Expr
+             |
+             Expr Relop Expr
+             ;
+
+/*********************************
+* Expr = [ʺ‐ʺ] Term {Addop Term} *
+*********************************/
+Expr ::= OptNeg Term:termType TermMore//:termMoreType
+         {:
+            // provera sa termMoreType!
+
+            RESULT = termType;
+         :}
+         ;
+
+OptNeg ::= OP_SUB
+           |
+           /* epsilon */
+           ;
+
+TermMore ::= TermMore Addop Term
+             |
+             /* epsilon */
+             ;
+
+/*******************************
+* Term = Factor {Mulop Factor} *
+*******************************/
+Term ::= Term:termType Mulop Factor:factType
+         {:
+            if (termType.equals(factType) && termType == Tab.intType)
+            {
+                RESULT = termType;
+            }
+            else
+            {
+                parser.report_error("Greska na liniji " + termTypeleft + ": Nekompatibilni tipovi u izrazu za sabiranje.", null);
+                RESULT = Tab.noType;
+            }
+         :}
+         |
+         Factor:factType
+         {: RESULT = factType; :}
+         ;
+
+/******************************************
+* Factor = Designator [ʺ(ʺ [ActPars] ʺ)ʺ] *
+*        | numConst                       *
+*        | charConst                      *
+*        | boolConst                      *
+*        | ʺnewʺ Type [ʺ[ʺ Expr ʺ]ʺ]      *
+*        | ʺ(ʺ Expr ʺ)ʺ.                  *
+******************************************/
+Factor ::= Designator:desig OptParenActPars
+           {:
+                if (Obj.Meth == desig.getKind())
+                {
+                    parser.report_info("Pronadjen poziv funkcije " + desig.getName() + " na liniji " + desigleft, null);
+                    RESULT = desig.getType();
+                }
+                else
+                {
+                    parser.report_error("Greska na liniji " + desigleft + ": Ime " + desig.getName() + " nije funkcija!", null);
+                    RESULT = Tab.noType;
+                }
+           :}
+           |
+           NUM_CONST
+           {: RESULT = Tab.intType; :}
+           |
+           CHAR_CONST
+           {: RESULT = Tab.charType; :}
+           |
+           BOOL_CONST
+           {: RESULT = TabExt.boolType; :}
+           |
+           NEW Type:type OptArrayExpr
+           {: RESULT = type; :}
+           |
+           LPAREN Expr:exprType RPAREN
+           {: RESULT = exprType; :}
+           ;
+
+OptParenActPars ::= LPAREN OptActPars RPAREN
+                    |
+                    /* epsilon */
+                    ;
+
+OptArrayExpr ::= LSQUARE Expr RSQUARE
+                 |
+                 /* epsilon */
+                 ;
+
+/************************************************
+* Designator = ident {ʺ.ʺ ident | ʺ[ʺ Expr ʺ]ʺ} *
+************************************************/
+Designator ::= IDENT:name DesignatorMore
+               {:
+                   Obj obj = Tab.find(name);
+                   if (obj == Tab.noObj)
+                   {
+                       parser.report_error("Greska na liniji " + nameleft + ": Ime " + name + " nije deklarisano! ", null);
+                   }
+                   RESULT = obj;
+               :}
+               ;
+
+DesignatorMore ::= DesignatorMore DesignatorMoreChoice
+                   |
+                   /* epsilon */
+                   ;
+
+DesignatorMoreChoice ::= DOT IDENT
+                         |
+                         LSQUARE Expr RSQUARE
+                         ;
+
+/************************************************
+* Relop = ʺ==ʺ | ʺ!=ʺ | ʺ>ʺ | ʺ>=ʺ | ʺ<ʺ | ʺ<=ʺ *
+************************************************/
+Relop ::= OP_EQ
+          |
+          OP_NEQ
+          |
+          OP_GRE
+          |
+          OP_GEQ
+          |
+          OP_LES
+          |
+          OP_LEQ
+          ;
+
+/********************
+* Addop = ʺ+ʺ | ʺ‐ʺ *
+********************/
+Addop ::= OP_ADD
+          |
+          OP_SUB
+          ;
+
+/**************************
+* Mulop = ʺ*ʺ | ʺ/ʺ | ʺ%ʺ *
+**************************/
+Mulop ::= OP_MUL
+          |
+          OP_DIV
+          |
+          OP_MOD
+          ;

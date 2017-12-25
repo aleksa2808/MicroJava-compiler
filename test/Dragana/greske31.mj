@@ -1,0 +1,18 @@
+program test31
+
+	const int a = 3;
+	int x, y;
+	char z;
+{
+	void main(){
+		read(a);               //semanticka, a mora biti promenljiva, element niza ili polje klase
+		a = 5;                 //semanticka, isto kao prethodna
+		x = 1; y = 3; z = 'b';
+		do {          //semanticka, ne poklapaju se tipovi
+			z = y + x;         //semanticka, isto
+			x = x + 1;
+		} while(z < a);
+		break;                 //semanticka, break van petlje
+	}
+
+}

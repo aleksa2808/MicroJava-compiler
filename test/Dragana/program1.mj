@@ -1,0 +1,30 @@
+program test
+
+class B{
+	int niz[];
+}
+
+class A
+{
+	int i;
+	B b;
+
+}
+
+{
+	
+	void main()
+	A a[];
+	{
+
+		a = new A[2];
+		a[0] = new A;
+		a[0].i = 1;
+		a[0].b = new B;
+		a[0].b.niz = new int[2];
+		
+		print(a[0].b.niz[1]);
+			
+	}
+}
+

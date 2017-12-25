@@ -1,0 +1,29 @@
+program test
+
+	int a, b; 
+	int manji, veci, step, pom, novi;
+	const int x = 10;
+
+{
+	void main() {
+
+		read(a);
+		read(b);
+
+		novi = 0;
+		if(a < b){
+			manji = a;
+			veci = b;
+		}else{
+			manji = b;
+			veci = a;
+		}
+		pom = manji;
+		for(;pom > 0;){
+			pom = pom/x;
+			step = step*x;
+		}
+		novi = veci*step + manji;
+		print(novi);
+	}
+}

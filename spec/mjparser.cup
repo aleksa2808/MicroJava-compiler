@@ -3,12 +3,11 @@ package rs.ac.bg.etf.pp1;
 import java_cup.runtime.*;
 import java.io.*;
 import org.apache.log4j.*;
-//import rs.ac.bg.etf.pp1.ast.*;
-
-
+import rs.ac.bg.etf.pp1.ast.*;
 
 parser code {:
     int printCallCount = 0;
+    boolean errorDetected = false;
 
     Logger log = Logger.getLogger(getClass());
 
@@ -16,8 +15,8 @@ parser code {:
     * slede redefinisani metodi za prijavu gresaka radi izmene teksta poruke
     ***********************************************************************/
     public void report_fatal_error(String message, Object info) throws java.lang.Exception {
-      done_parsing();
-      report_error(message, info);
+        done_parsing();
+        report_error(message, info);
     }
 
     public void syntax_error(Symbol cur_token) {
@@ -25,6 +24,7 @@ parser code {:
     }
 
     public void unrecovered_syntax_error(Symbol cur_token) throws java.lang.Exception {
+        errorDetected = true;
         report_fatal_error("Fatalna greska, parsiranje se ne moze nastaviti", cur_token);
     }
 
@@ -34,48 +34,56 @@ parser code {:
             msg.append(" na liniji ").append(((Symbol)info).left);
         log.error(msg.toString());
     }
+
+    public void report_info(String message, Object info) {
+        StringBuilder msg = new StringBuilder(message);
+        if (info instanceof Symbol)
+            msg.append(" na liniji ").append(((Symbol)info).left);
+        log.info(msg.toString());
+    }
 :}
 
-scan with {:
-    Symbol s = this.getScanner().next_token();
-    if (s != null && s.value != null)
-        log.info(s.toString() + " " + s.value.toString());
-    return s;
-:}
+//scan with {:
+//    Symbol s = this.getScanner().next_token();
+////    if (s != null && s.value != null)
+////        log.info(s.toString() + " " + s.value.toString());
+//    return s;
+//:}
 
 terminal PROG, BREAK, CLASS, ELSE, IF, NEW, PRINT, READ, RETURN, VOID, DO, WHILE, EXTENDS, CONTINUE, CONST;
 terminal String IDENT;
 terminal Integer NUM_CONST;
-terminal String CHAR_CONST;
+terminal Character CHAR_CONST;
 terminal String BOOL_CONST;
 terminal OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD, OP_EQ, OP_NEQ, OP_GRE, OP_GEQ, OP_LES, OP_LEQ, OP_AND, OP_OR;
-terminal ASSIGN, ASSIGN_ADD, ASSIGN_SUB, ASSIGN_MUL, ASSIGN_DIV, ASSIGN_MOD;
+terminal ASSIGN;
 terminal OP_INC, OP_DEC;
 terminal SEMI, COMMA, DOT;
 terminal LPAREN, RPAREN, LSQUARE, RSQUARE, LBRACE, RBRACE;
 
-non terminal Program, DeclList, Decl;
-non terminal ConstDecl, ConstVal, ConstDeclMore, ConstValAssign;
-non terminal VarDecl, OptArrayIndicator, VarDeclMore;
-non terminal ClassDecl, OptExtendsIndicator, OptBracedMethodDeclList, MethodDeclList;
-non terminal MethodDecl, VoidableType, OptFormPars, VarDeclList, StatementList;
+non terminal Program, GlobalDeclList, GlobalDecl, MethodDeclList;
+non terminal ConstDecl, ConstDeclDummy, ConstDeclMore, ConstValAssign;
+non terminal VarDecl, TypeDummy, VarDeclDefine, OptArrayIndicator, VarDeclMore;
+non terminal GlobalVarDecl, GlobalVarDeclDefine, GlobalVarDeclMore;
+// Field Var start
+non terminal FieldVarDeclListLbrace, FieldVarDeclList, FieldVarDecl, FieldVarDeclDefineOrErrorSemi;
+non terminal FieldVarMoreListOrErrorSemi, FieldVarDeclLbrace, FieldVarDeclDefineOrErrorLbrace;
+non terminal FieldVarMoreListOrErrorLbrace, FieldVarErrorSemi, FieldVarErrorLbrace;
+// Field Var end
+non terminal ClassDecl, ClassNameExtend, ClassDeclExtHelper, FieldVarMethodDeclList;
+non terminal MethodDecl, MethodSignature, PreFormParsDummy, OptFormPars, VarDeclList, StatementList;
 non terminal FormPars, FormParDecl;
-non terminal Type;
-non terminal Statement, OptElseBranch, OptExpr, OptPrintMore;
-non terminal DesignatorStatement, DesignatorJob, OptActPars;
-non terminal ActPars;
-non terminal Condition;
-non terminal CondTerm;
-non terminal CondFact;
-non terminal Expr, OptNeg, TermMore;
-non terminal Term;
-non terminal Factor, OptParenActPars, OptArrayExpr;
-non terminal Designator, DesignatorMore, DesignatorMoreChoice;
+non terminal Statement, IfCondition, OptElseBranch, DoWhileDummy, OptPrintMore;
+non terminal DesignatorStatement, PreActParsDummy, OptActPars;
+non terminal ActPars, ActPar;
+non terminal DesignatorMore, DesignatorMoreChoice;
 non terminal Relop;
 non terminal Addop;
 non terminal Mulop;
 
-non terminal Obj ProgramName;
+non terminal rs.etf.pp1.symboltable.concepts.Obj ProgName, ConstVal, Designator;
+non terminal rs.etf.pp1.symboltable.concepts.Struct OptExtendsIndicator, VoidableType, Type, Assignment, FunctionCall, OptExpr, Condition, CondTerm, CondFact, Expr, Term, Factor;
+
 
 precedence left ELSE;
 
@@ -83,120 +91,200 @@ precedence left ELSE;
 /***********************************************************************************
 * Program = ʺprogramʺ ident {ConstDecl | VarDecl | ClassDecl} ʺ{ʺ {MethodDecl} ʺ}ʺ *
 ***********************************************************************************/
-Program ::= PROG ProgramName:p DeclList LBRACE MethodDeclList RBRACE ;
+Program ::= (Program) PROG ProgName GlobalDeclList LBRACE MethodDeclList RBRACE ;
 
-ProgramName ::= IDENT:pName
-{:
-    RESULT = Tab.insert(Obj.Prog, pName, Tab.noType);
-    Tab.openScope();
-:};
+ProgName ::= (ProgName) IDENT ;
 
-DeclList ::= DeclList Decl
-             |
-             /* epsilon */
-             ;
+GlobalDeclList ::= (GlobalDeclList_NoEps) GlobalDeclList GlobalDecl
+                   |
+                   (GlobalDeclList_Eps) /* epsilon */
+                   ;
 
-Decl ::= ConstDecl
-         |
-         VarDecl
-         |
-         ClassDecl
-         ;
+GlobalDecl ::= (GlobalDecl_Const) ConstDecl
+               |
+               (GlobalDecl_Var) GlobalVarDecl
+               |
+               (GlobalDecl_Class) ClassDecl
+               ;
+
+MethodDeclList ::= (MethodDeclList_NoEps) MethodDeclList MethodDecl
+                   |
+                   (MethodDeclList_Eps) /* epsilon */
+                   ;
 
 /***************************************************************************************************************************
 * ConstDecl = ʺconstʺ Type identʺ=ʺ(numConst | charConst | boolConst) {, ident ʺ=ʺ (numConst | charConst | boolConst)} ʺ;ʺ *
 ***************************************************************************************************************************/
-ConstDecl ::= CONST Type ConstValAssign ConstDeclMore SEMI ;
+ConstDecl ::= (ConstDecl) CONST Type ConstDeclDummy ConstValAssign ConstDeclMore SEMI ;
 
-ConstVal ::= NUM_CONST
+ConstDeclDummy ::= (ConstDeclDummy) /* epsilon */ ;
+
+ConstValAssign ::= (ConstValAssign) IDENT ASSIGN ConstVal ;
+
+ConstVal ::= (ConstVal_Num) NUM_CONST
              |
-             CHAR_CONST
+             (ConstVal_Char) CHAR_CONST
              |
-             BOOL_CONST
+             (ConstVal_Bool) BOOL_CONST
              ;
 
-ConstDeclMore ::= ConstDeclMore COMMA ConstValAssign
+ConstDeclMore ::= (ConstDeclMore_NoEps) ConstDeclMore COMMA ConstValAssign
                   |
-                  /* epsilon */
+                  (ConstDeclMore_Eps) /* epsilon */
                   ;
-
-ConstValAssign ::= IDENT ASSIGN ConstVal ;
 
 /***********************************************************
 * VarDecl = Type ident [ʺ[ʺ ʺ]ʺ] {ʺ,ʺ ident [ʺ[ʺ ʺ]ʺ]} ʺ;ʺ *
 ***********************************************************/
-VarDecl ::= Type IDENT OptArrayIndicator VarDeclMore SEMI ;
+VarDecl ::= (VarDecl) TypeDummy VarDeclDefine VarDeclMore SEMI ;
 
-OptArrayIndicator ::= LSQUARE RSQUARE
+TypeDummy ::= (TypeDummy) Type ;
+
+VarDeclDefine ::= (VarDeclDefine) IDENT OptArrayIndicator ;
+
+OptArrayIndicator ::= (OptArrayIndicator_NoEps) LSQUARE RSQUARE
                       |
-                      /* epsilon */
+                      (OptArrayIndicator_Eps) /* epsilon */
                       ;
 
-VarDeclMore ::= VarDeclMore COMMA IDENT OptArrayIndicator
+VarDeclMore ::= (VarDeclMore_NoEps) VarDeclMore COMMA VarDeclDefine
                 |
-                /* epsilon */
+                (VarDeclMore_Eps) /* epsilon */
                 ;
 
-/****************************************************************************
-* ClassDecl = ʺclassʺ ident [ʺextendsʺ Type] ʺ{ʺ [ʺ{ʺ {MethodDecl} ʺ}ʺ] ʺ}ʺ *
-****************************************************************************/
-ClassDecl ::= CLASS IDENT OptExtendsIndicator LBRACE DeclList OptBracedMethodDeclList RBRACE ;
-// IZMENJENA POSTAVKA: Dodati atributi klase         ********
 
-OptExtendsIndicator ::= EXTENDS Type
+GlobalVarDecl ::= (GlobalVarDecl) TypeDummy GlobalVarDeclDefine GlobalVarDeclMore SEMI ;
+
+GlobalVarDeclDefine ::= (GlobalVarDeclDefine_Define) VarDeclDefine
                         |
-                        /* epsilon */
+                        (GlobalVarDeclDefine_Error) error:e
+                        {: parser.report_info("Oporavak od greske u definiciji globalne promenljive na liniji " + eleft, null); :}
                         ;
 
-OptBracedMethodDeclList ::= LBRACE MethodDeclList RBRACE
-                            |
-                            /* epsilon */
-                            ;
+GlobalVarDeclMore ::= (GlobalVarDeclMore_NoEps) GlobalVarDeclMore COMMA GlobalVarDeclDefine
+                      |
+                      (GlobalVarDeclMore_Eps) /* epsilon */
+                      ;
 
-MethodDeclList ::= MethodDeclList MethodDecl
-                   |
-                   /* epsilon */
-                   ;
+/*************************************************************************************
+* ClassDecl = ʺclassʺ ident [ʺextendsʺ Type] ʺ{ʺ{VarDecl} [ʺ{ʺ {MethodDecl} ʺ}ʺ] ʺ}ʺ *
+*************************************************************************************/
+ClassDecl ::= (ClassDecl) CLASS ClassNameExtend FieldVarMethodDeclList RBRACE ;
+
+ClassNameExtend ::= (ClassNameExtend) IDENT OptExtendsIndicator ;
+
+OptExtendsIndicator ::= (OptExtendsIndicator_NoEps) EXTENDS Type LBRACE
+                        |
+                        (OptExtendsIndicator_Error) EXTENDS error:e LBRACE
+                        {: parser.report_info("Oporavak od greske nakon 'extends' kljucne reci na liniji " + eleft, null); :}
+                        |
+                        (OptExtendsIndicator_Eps) /* epsilon */ LBRACE
+                        ;
+
+FieldVarMethodDeclList ::= (FieldVarMethodDeclList_Fields) FieldVarDeclList ClassDeclExtHelper
+                           |
+                           (FieldVarMethodDeclList_FieldsMethods) FieldVarDeclListLbrace ClassDeclExtHelper MethodDeclList RBRACE
+                           ;
+
+ClassDeclExtHelper ::= (ClassDeclExtHelper) /* epsilon */ ;
+
+FieldVarDeclListLbrace ::= (FieldVarDeclListLbrace_List) FieldVarDeclList FieldVarDeclLbrace
+                           |
+                           (FieldVarDeclListLbrace_Lbrace) LBRACE
+                           ;
+
+FieldVarDeclList ::= (FieldVarDeclList_NoEps) FieldVarDeclList FieldVarDecl
+                     |
+                     (FieldVarDeclList_Eps) /* epsilon */
+                     ;
+
+FieldVarDecl ::= (FieldVarDecl) TypeDummy FieldVarDeclDefineOrErrorSemi ;
+
+FieldVarDeclDefineOrErrorSemi ::= (FieldVarDeclDefineOrErrorSemi_Define) VarDeclDefine FieldVarMoreListOrErrorSemi
+                                  |
+                                  (FieldVarDeclDefineOrErrorSemi_Error) FieldVarErrorSemi
+                                  ;
+
+FieldVarMoreListOrErrorSemi ::= (FieldVarMoreListOrErrorSemi_Item) COMMA VarDeclDefine FieldVarMoreListOrErrorSemi
+                                |
+                                (FieldVarMoreListOrErrorSemi_Error) COMMA FieldVarErrorSemi
+                                |
+                                (FieldVarMoreListOrErrorSemi_Semi) /* epsilon */ SEMI
+                                ;
+
+FieldVarDeclLbrace ::= (FieldVarDeclLbrace) TypeDummy FieldVarDeclDefineOrErrorLbrace ;
+
+FieldVarDeclDefineOrErrorLbrace ::= (FieldVarDeclDefineOrErrorLbrace_Item) VarDeclDefine FieldVarMoreListOrErrorLbrace
+                                    |
+                                    (FieldVarDeclDefineOrErrorLbrace_ErrorSemi) FieldVarErrorSemi LBRACE
+                                    |
+                                    (FieldVarDeclDefineOrErrorLbrace_ErrorLbrace) FieldVarErrorLbrace
+                                    ;
+
+FieldVarMoreListOrErrorLbrace ::= (FieldVarMoreListOrErrorLbrace_Item) COMMA VarDeclDefine FieldVarMoreListOrErrorLbrace
+                                  |
+                                  (FieldVarMoreListOrErrorLbrace_ErrorSemi) COMMA FieldVarErrorSemi LBRACE
+                                  |
+                                  (FieldVarMoreListOrErrorLbrace_ErrorLbrace) COMMA FieldVarErrorLbrace
+                                  |
+                                  (FieldVarMoreListOrErrorLbrace_SemiLbrace) /* epsilon */ SEMI LBRACE
+                                  ;
+
+FieldVarErrorSemi ::= (FieldVarErrorSemi) error:e SEMI
+                      {: parser.report_info("Oporavak od greske do znaka ';' u definiciji polja unutrasnje klase na liniji " + eleft, null); :}
+                      ;
+
+FieldVarErrorLbrace ::= (FieldVarErrorLbrace) error:e LBRACE
+                        {: parser.report_info("Oporavak od greske do znaka '{' u definiciji polja unutrasnje klase na liniji " + eleft, null); :}
+                        ;
 
 /**************************************************************************************
 * MethodDecl = (Type | ʺvoidʺ) ident ʺ(ʺ [FormPars] ʺ)ʺ {VarDecl} ʺ{ʺ {Statement} ʺ}ʺ *
 ***************************************************************************************/
-MethodDecl ::= VoidableType IDENT LPAREN OptFormPars RPAREN VarDeclList LBRACE StatementList RBRACE ;
+MethodDecl ::= (MethodDecl) MethodSignature VarDeclList LBRACE StatementList RBRACE ;
 
-VoidableType ::= Type
+MethodSignature ::= (MethodSignature) VoidableType IDENT PreFormParsDummy LPAREN OptFormPars RPAREN ;
+
+VoidableType ::= (VoidableType_Type) Type
                  |
-                 VOID
+                 (VoidableType_Void) VOID
                  ;
 
-OptFormPars ::= FormPars
+PreFormParsDummy ::= (PreFormParsDummy) /* epsilon */ ;
+
+OptFormPars ::= (OptFormPars_NoEps) FormPars
                 |
-                /* epsilon */
+                (OptFormPars_Eps) /* epsilon */
                 ;
 
-VarDeclList ::= VarDeclList VarDecl
+VarDeclList ::= (VarDeclList_NoEps) VarDeclList VarDecl
                 |
-                /* epsilon */
+                (VarDeclList_Eps) /* epsilon */
                 ;
 
-StatementList ::= StatementList Statement
+StatementList ::= (StatementList_NoEps) StatementList Statement
                   |
-                  /* epsilon */
+                  (StatementList_Eps) /* epsilon */
                   ;
 
 /*************************************************************
 * FormPars = Type ident [ʺ[ʺ ʺ]ʺ] {ʺ,ʺ Type ident [ʺ[ʺ ʺ]ʺ]} *
 **************************************************************/
-FormPars ::= FormPars COMMA FormParDecl
+FormPars ::= (FormPars_List) FormPars COMMA FormParDecl
              |
-             FormParDecl
+             (FormPars_Decl) FormParDecl
              ;
 
-FormParDecl ::= Type IDENT OptArrayIndicator ;
+FormParDecl ::= (FormParDecl_Ident) Type IDENT OptArrayIndicator
+                |
+                (FormParDecl_Error) error:e
+                {: parser.report_info("Oporavak od greske u deklaraciji formalnih parametara na liniji " + eleft, null); :}
+                ;
 
 /***************
 * Type = ident *
 ****************/
-Type ::= IDENT ;
+Type ::= (Type) IDENT ;
 
 /******************************************************************
 * Statement = DesignatorStatement ʺ;ʺ                             *
@@ -209,113 +297,125 @@ Type ::= IDENT ;
 *           | ʺprintʺ ʺ(ʺ Expr [ʺ,ʺ numConst] ʺ)ʺ ʺ;ʺ             *
 *           | ʺ{ʺ {Statement} ʺ}ʺ                                 *
 ******************************************************************/
-Statement ::= DesignatorStatement SEMI
-            |
-            IF LPAREN Condition RPAREN Statement OptElseBranch
-            |
-            DO Statement WHILE LPAREN Condition RPAREN SEMI
-            |
-            BREAK SEMI
-            |
-            CONTINUE SEMI
-            |
-            RETURN OptExpr SEMI
-            |
-            READ LPAREN Designator RPAREN SEMI
-            |
-            PRINT LPAREN Expr OptPrintMore RPAREN SEMI
-            {: this.parser.printCallCount++; :}
-            |
-            LBRACE StatementList RBRACE
-            ;
+Statement ::= (Statement_Desig) DesignatorStatement
+              |
+              (Statement_If) IfCondition Statement OptElseBranch
+              |
+              (Statement_DoWhile) DO DoWhileDummy Statement WHILE LPAREN Condition RPAREN SEMI
+              |
+              (Statement_Break) BREAK SEMI
+              |
+              (Statement_Cont) CONTINUE SEMI
+              |
+              (Statement_Return) RETURN OptExpr SEMI
+              |
+              (Statement_Read) READ LPAREN Designator RPAREN SEMI
+              |
+              (Statement_Print) PRINT LPAREN Expr OptPrintMore RPAREN SEMI
+              |
+              (Statement_Brace) LBRACE StatementList RBRACE
+              ;
 
-OptElseBranch ::= ELSE Statement
+IfCondition ::= (IfCondition_Cond) IF LPAREN Condition RPAREN
+                |
+                (IfCondition_Error) IF LPAREN error:e RPAREN
+                {: parser.report_info("Oporavak od greske u 'if' konstrukciji na liniji " + eleft, null); :}
+                ;
+
+OptElseBranch ::= (OptElseBranch_NoEps) ELSE Statement
                   |
-                  /* epsilon */
+                  (OptElseBranch_Eps) /* epsilon */
                   ;
 
-OptExpr ::= Expr
+DoWhileDummy ::= (DoWhileDummy) /* epsilon */ ;
+
+OptExpr ::= (OptExpr_NoEps) Expr
             |
-            /* epsilon */
+            (OptExpr_Eps) /* epsilon */
             ;
 
-OptPrintMore ::= SEMI NUM_CONST
+OptPrintMore ::= (OptPrintMore_NoEps) COMMA NUM_CONST
                  |
-                 /* epsilon */
+                 (OptPrintMore_Eps) /* epsilon */
                  ;
 
 /*******************************************************************************
-* DesignatorStatement = Designator (ʺ=ʺ Expr | ʺ(ʺ [ActPars] ʺ)ʺ | ʺ++ʺ | ʺ‐‐ʺ) *
+* DesignatorStatement = Designator (ʺ=ʺ Expr | ʺ(ʺ [ActPars] ʺ)ʺ | ʺ++ʺ | ʺ--ʺ) *
 *******************************************************************************/
-DesignatorStatement ::= Designator DesignatorJob ;
+DesignatorStatement ::= (DesignatorStatement_Assign) Designator Assignment
+                        |
+                        (DesignatorStatement_Func) FunctionCall SEMI
+                        |
+                        (DesignatorStatement_Inc) Designator OP_INC SEMI
+                        |
+                        (DesignatorStatement_Dec) Designator OP_DEC SEMI
+                        ;
 
-DesignatorJob ::= ASSIGN Expr
-                  |
-                  LPAREN OptActPars RPAREN
-                  |
-                  OP_INC
-                  |
-                  OP_DEC
-                  ;
-
-OptActPars ::= ActPars
+Assignment ::= (Assignment_Expr) ASSIGN Expr SEMI
                |
-               /* epsilon */
+               (Assignment_Error) ASSIGN error:e SEMI
+               {: parser.report_info("Oporavak od greske u konstrukciji iskaza dodele na liniji " + eleft, null); :}
+               ;
+
+FunctionCall ::= (FunctionCall) Designator PreActParsDummy LPAREN OptActPars RPAREN ;
+
+PreActParsDummy ::= (PreActParsDummy) /* epsilon */ ;
+
+OptActPars ::= (OptActPars_NoEps) ActPars
+               |
+               (OptActPars_Eps) /* epsilon */
                ;
 
 /****************************
 * ActPars = Expr {ʺ,ʺ Expr} *
 ****************************/
-ActPars ::= ActPars COMMA Expr
+ActPars ::= (ActPars_Chain) ActPars COMMA ActPar
             |
-            Expr
+            (ActPars_Item) ActPar
             ;
+
+ActPar ::= (ActPar) Expr ;
 
 /***************************************
 * Condition = CondTerm {ʺ||ʺ CondTerm} *
 ***************************************/
-Condition ::= Condition OP_OR CondTerm
+Condition ::= (Condition_Chain) Condition OP_OR CondTerm
               |
-              CondTerm
+              (Condition_Item) CondTerm
               ;
 
 /**************************************
 * CondTerm = CondFact {ʺ&&ʺ CondFact} *
 **************************************/
-CondTerm ::= CondTerm OP_AND CondFact
+CondTerm ::= (CondTerm_Chain) CondTerm OP_AND CondFact
              |
-             CondFact
+             (CondTerm_Item) CondFact
              ;
 
 /*******************************
 * CondFact = Expr [Relop Expr] *
 *******************************/
-CondFact ::= Expr
+CondFact ::= (CondFact_Expr) Expr
              |
-             Expr Relop Expr
+             (CondFact_Relop) Expr Relop Expr
              ;
 
 /*********************************
-* Expr = [ʺ‐ʺ] Term {Addop Term} *
+* Expr = [ʺ-ʺ] Term {Addop Term} *
 *********************************/
-Expr ::= OptNeg Term TermMore ;
-
-OptNeg ::= OP_SUB
-           |
-           /* epsilon */
-           ;
-
-TermMore ::= TermMore Addop Term
-             |
-             /* epsilon */
-             ;
+Expr ::= (Expr_Term) Term
+         |
+         (Expr_SubTerm) OP_SUB Term
+         |
+         (Expr_AddopTerm) Expr Addop Term
+         ;
 
 /*******************************
 * Term = Factor {Mulop Factor} *
 *******************************/
-Term ::= Term Mulop Factor
+Term ::= (Term_Item) Factor
          |
-         Factor
+         (Term_Chain) Term Mulop Factor
          ;
 
 /******************************************
@@ -326,74 +426,68 @@ Term ::= Term Mulop Factor
 *        | ʺnewʺ Type [ʺ[ʺ Expr ʺ]ʺ]      *
 *        | ʺ(ʺ Expr ʺ)ʺ.                  *
 ******************************************/
-Factor ::= Designator OptParenActPars
+Factor ::= (Factor_Desig) Designator
            |
-           NUM_CONST
+           (Factor_DesigFunc) FunctionCall
            |
-           CHAR_CONST
+           (Factor_Num) NUM_CONST
            |
-           BOOL_CONST
+           (Factor_Char) CHAR_CONST
            |
-           NEW Type OptArrayExpr
+           (Factor_Bool) BOOL_CONST
            |
-           LPAREN Expr RPAREN
+           (Factor_New) NEW Type
+           |
+           (Factor_NewArr) NEW Type LSQUARE Expr RSQUARE
+           |
+           (Factor_Paren) LPAREN Expr RPAREN
            ;
-
-OptParenActPars ::= LPAREN OptActPars RPAREN
-                    |
-                    /* epsilon */
-                    ;
-
-OptArrayExpr ::= LSQUARE Expr RSQUARE
-                 |
-                 /* epsilon */
-                 ;
 
 /************************************************
 * Designator = ident {ʺ.ʺ ident | ʺ[ʺ Expr ʺ]ʺ} *
 ************************************************/
-Designator ::= IDENT DesignatorMore ;
+Designator ::= (Designator) IDENT DesignatorMore ;
 
-DesignatorMore ::= DesignatorMore DesignatorMoreChoice
+DesignatorMore ::= (DesignatorMore_NoEps) DesignatorMoreChoice DesignatorMore
                    |
-                   /* epsilon */
+                   (DesignatorMore_Eps) /* epsilon */
                    ;
 
-DesignatorMoreChoice ::= DOT IDENT
+DesignatorMoreChoice ::= (DesignatorMoreChoice_Dot) DOT IDENT
                          |
-                         LSQUARE Expr RSQUARE
+                         (DesignatorMoreChoice_Array) LSQUARE Expr RSQUARE
                          ;
 
 /************************************************
 * Relop = ʺ==ʺ | ʺ!=ʺ | ʺ>ʺ | ʺ>=ʺ | ʺ<ʺ | ʺ<=ʺ *
 ************************************************/
-Relop ::= OP_EQ
+Relop ::= (Relop_Eq) OP_EQ
           |
-          OP_NEQ
+          (Relop_Neq) OP_NEQ
           |
-          OP_GRE
+          (Relop_Gre) OP_GRE
           |
-          OP_GEQ
+          (Relop_Geq) OP_GEQ
           |
-          OP_LES
+          (Relop_Les) OP_LES
           |
-          OP_LEQ
+          (Relop_Leq) OP_LEQ
           ;
 
 /********************
-* Addop = ʺ+ʺ | ʺ‐ʺ *
+* Addop = ʺ+ʺ | ʺ-ʺ *
 ********************/
-Addop ::= OP_ADD
+Addop ::= (Addop_Add) OP_ADD
           |
-          OP_SUB
+          (Addop_Sub) OP_SUB
           ;
 
 /**************************
 * Mulop = ʺ*ʺ | ʺ/ʺ | ʺ%ʺ *
 **************************/
-Mulop ::= OP_MUL
+Mulop ::= (Mulop_Mul) OP_MUL
           |
-          OP_DIV
+          (Mulop_Div) OP_DIV
           |
-          OP_MOD
+          (Mulop_Mod) OP_MOD
           ;

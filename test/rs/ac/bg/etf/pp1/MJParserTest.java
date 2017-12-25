@@ -3,7 +3,9 @@ package rs.ac.bg.etf.pp1;
 import java_cup.runtime.Symbol;
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
+import rs.ac.bg.etf.pp1.ast.*;
 import rs.ac.bg.etf.pp1.util.Log4JUtils;
+import rs.etf.pp1.symboltable.Tab;
 
 import java.io.*;
 
@@ -20,7 +22,7 @@ public class MJParserTest {
 
         Reader br = null;
         try {
-            File sourceCode = new File("test/program.mj");
+            File sourceCode = new File("test/Dragana/sveobuhvatni.mj");
             log.info("Compiling source file: " + sourceCode.getAbsolutePath());
 
             br = new BufferedReader(new FileReader(sourceCode));
@@ -29,8 +31,27 @@ public class MJParserTest {
             MJParser p = new MJParser(lexer);
             Symbol s = p.parse();  //pocetak parsiranja
 
-            log.info("Print calls = " + p.printCallCount);
+            if (!p.errorDetected) {
+                Program prog = (Program) (s.value);
 
+                // ispis sintaksnog stabla
+                //System.out.println(prog.toString(""));
+                System.out.println("===================================");
+
+                // ispis prepoznatih programskih konstrukcija
+                SemanticAnalyzer v = new SemanticAnalyzer();
+                prog.traverseBottomUp(v);
+
+                log.info("Print calls = " + p.printCallCount);
+
+                Tab.dump();
+
+                if (!v.errorDetected) {
+                    log.info("Parsiranje uspesno zavrseno!");
+                } else {
+                    log.error("Parsiranje NIJE uspesno zavrseno!");
+                }
+            }
         }
         finally {
             if (br != null) try { br.close(); } catch (IOException e1) { log.error(e1.getMessage(), e1); }

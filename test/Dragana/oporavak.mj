@@ -1,0 +1,42 @@
+//oporavak od gresaka
+
+program test
+
+class Klasa{
+    char oho, ho ho
+	int niz[];
+	int polje, sta, je, bilo 						//deklaracija polja unutra�nje klase � ignorisati karaktere do prvog ";" ili "{"
+	{
+		
+		void f(int a, int b){
+		}
+	}
+}
+
+class Izvedena extends Klasa greska{ //deklaracija pro�irenja natklase (extends) � ignorisati znakove do prvog znaka "{".
+}
+
+	int a, c, maxcif;
+	char e = '2';              		//definicija globalne promenljive � ignorisati karaktere do prvog znaka ";" ili sledeceg ","
+	Klasa niz[];
+	Klasa k;
+	
+{
+
+	void f(int a, int c++, int b){	//deklaracija formalnog parametra funkcije � ignorisati znakove do znaka "," ili ")"
+	}
+	
+	
+	void main() char a;{ //deklaracija lokalnih promenljivih � ignorisati karaktere do prvog ";" ili "{"
+		maxcif = 0;
+		a = 2/; 					//konstrukcija iskaza dodele � ignorisati karaktere do ";"
+		
+		niz[a]=a; 			//izraz za indeksiranje niza � ignorisati karaktere do prvog znaka "]"
+		a = niz[a];			//izraz za indeksiranje niza � ignorisati karaktere do prvog znaka "]"
+		
+		k = new Klasa;
+		k.f(a, a, a);		//liste parametara u pozivu metode objekta � ignorisati karaktere do prvog znaka ")"
+		
+		print('a');
+	}
+}

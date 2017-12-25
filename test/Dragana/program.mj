@@ -1,0 +1,33 @@
+//Test 303
+
+program test_303
+
+const int cinilac = 4, delilac = 3;
+
+class A {
+    {
+        int f(int a){
+            a++;
+            return 0;
+        }
+    }
+}
+
+int zapreminaK, zapreminaS;
+int tezinaK, tezinaS;
+{
+
+	int f(A this, int a){
+        a++;
+        return 0;
+	}
+	
+	void main() int a; A b;
+	{
+	   a=1;
+	   f(b, a);
+	   print(a);
+
+	}
+}
+
