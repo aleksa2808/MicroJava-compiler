@@ -6,8 +6,8 @@ import org.apache.log4j.*;
 import rs.ac.bg.etf.pp1.ast.*;
 
 parser code {:
-    int printCallCount = 0;
     boolean errorDetected = false;
+    boolean fatalErrorDetected = false;
 
     Logger log = Logger.getLogger(getClass());
 
@@ -24,11 +24,12 @@ parser code {:
     }
 
     public void unrecovered_syntax_error(Symbol cur_token) throws java.lang.Exception {
-        errorDetected = true;
+        fatalErrorDetected = true;
         report_fatal_error("Fatalna greska, parsiranje se ne moze nastaviti", cur_token);
     }
 
     public void report_error(String message, Object info) {
+        errorDetected = true;
         StringBuilder msg = new StringBuilder(message);
         if (info instanceof Symbol) {
             msg.append(" na liniji ").append(((Symbol)info).left);
@@ -77,7 +78,7 @@ non terminal FieldVarMoreListOrErrorLbrace, FieldVarErrorSemi, FieldVarErrorLbra
 non terminal ClassDecl, ClassNameExtend, OptExtendsIndicator, ClassDeclExtHelper, FieldVarMethodDeclList;
 non terminal MethodDecl, PreFormParsDummy, OptFormPars, VarDeclList, StatementList;
 non terminal FormPars, FormParDecl;
-non terminal Statement, IfCondition, IfDummy, OptElseBranch, ElseDummy, DoWhileDummy;
+non terminal Statement, IfCondition, IfDummy, IfCondParen, OptElseBranch, ElseDummy, DoDummy, WhileDummy;
 non terminal DesignatorStatement, PreActParsDummy, OptActPars;
 non terminal ActPars, ActPar;
 non terminal OrDummy, AndDummy;
@@ -306,7 +307,7 @@ Statement ::= (Statement_Desig) DesignatorStatement
               |
               (Statement_If) IfCondition Statement OptElseBranch
               |
-              (Statement_DoWhile) DO DoWhileDummy Statement WHILE LPAREN Condition RPAREN SEMI
+              (Statement_DoWhile) DoDummy Statement WhileDummy LPAREN Condition RPAREN SEMI
               |
               (Statement_Break) BREAK SEMI
               |
@@ -323,13 +324,15 @@ Statement ::= (Statement_Desig) DesignatorStatement
               (Statement_Brace) LBRACE StatementList RBRACE
               ;
 
-IfCondition ::= (IfCondition_Cond) IfDummy LPAREN Condition RPAREN
-                |
-                (IfCondition_Error) IfDummy LPAREN error:e RPAREN
-                {: parser.report_info("Oporavak od greske u 'if' konstrukciji na liniji " + eleft, null); :}
-                ;
+IfCondition ::= (IfCondition_Cond) IfDummy IfCondParen ;
 
 IfDummy ::= (IfDummy) IF ;
+
+IfCondParen ::= (IfCondParen_Cond) LPAREN Condition RPAREN
+                |
+                (IfCondParen_Error) LPAREN error:e RPAREN
+                {: parser.report_info("Oporavak od greske u 'if' konstrukciji na liniji " + eleft, null); :}
+                ;
 
 OptElseBranch ::= (OptElseBranch_NoEps) ElseDummy Statement
                   |
@@ -338,7 +341,9 @@ OptElseBranch ::= (OptElseBranch_NoEps) ElseDummy Statement
 
 ElseDummy ::= (ElseDummy) ELSE ;
 
-DoWhileDummy ::= (DoWhileDummy) /* epsilon */ ;
+DoDummy ::= (DoDummy) DO ;
+
+WhileDummy ::= (WhileDummy) WHILE ;
 
 OptExpr ::= (OptExpr_NoEps) Expr
             |

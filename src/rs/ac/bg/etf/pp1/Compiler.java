@@ -29,7 +29,7 @@ class Compiler {
         MJParser p = new MJParser(scanner);
         Symbol sym = p.parse();
 
-        if (!p.errorDetected) {
+        if (!p.fatalErrorDetected) {
             Program prog = (Program)(sym.value);
 
 //            // ispis sintaksnog stabla
@@ -44,7 +44,7 @@ class Compiler {
             SemanticAnalyzer s = new SemanticAnalyzer();
             prog.traverseBottomUp(s);
 
-            if (s.passed()) {
+            if (!p.errorDetected && s.passed()) {
                 s.printInfo();
 
                 Code.dataSize = s.nVars;
@@ -54,18 +54,22 @@ class Compiler {
 
                 tsdump();
 
-                File objFile = new File(args[1]);
-                if (objFile.exists())
-                    objFile.delete();
+                if (!Code.greska) {
+                    File objFile = new File(args[1]);
+                    if (objFile.exists())
+                        objFile.delete();
 
-                System.out.println("Generating bytecode file: " + objFile.getAbsolutePath());
-                Code.write(new FileOutputStream(objFile));;
-                System.out.println("Compilation successful!");
+                    System.out.println("Generating bytecode file: " + objFile.getAbsolutePath());
+                    Code.write(new FileOutputStream(objFile));
+                    System.out.println("Compilation successful!");
+                } else {
+                    System.out.println("Problems found during code generation!");
+                }
             }
             else {
                 // nepotpuno, fale adrese metoda etc.
                 tsdump();
-                System.out.println("Problems found during compilation process!");
+                System.out.println("Problems found during parsing!");
             }
         }
     }

@@ -3,7 +3,7 @@
 program test302
 
 
-int r r,i;
+int r,i;
 bool ijedva;
 
 int niz[];
@@ -29,10 +29,12 @@ int niz[];
 
 
 		ijedva = false;
+		i = 0;
 		do
 		{
 			if(i == 2) ijedva = true;
-		} while(true);
+			i++;
+		} while(i < 5);
 		if(ijedva)
 			if(i == 5) print(1);
 			else print(-1);
@@ -54,9 +56,9 @@ int niz[];
 				continue;
 			}
 			if(i == 4) break;
-			i = inkrement(i)r;
-		} while(i<3);
-		if(i ==) print(4);
+			i = inkrement(i);
+		} while(i<10);
+		if(i == 3) print(4);
 		else print(-4);
 
 		read(niz[0]);

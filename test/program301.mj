@@ -15,7 +15,8 @@ program test301
 		bodovi = 0;
 		bodovi++;
 		bodovi = bodovi + jedan;
-		bodovi= pet;
+		bodovi = bodovi * pet;
+		bodovi = bodovi + bodovi;
 		bodovi--;
 		print(bodovi);
 
@@ -23,7 +24,8 @@ program test301
 		niz = new int[2];
 		niz[0] = pet;
 		niz[1] = 10;
-		bodovi = (niz[1]/niz[0]);
+		niz[1] = niz[1]/niz[0];
+		bodovi = (niz[1]);
 		print(bodovi);
 		print(niz[1]);
 
@@ -36,7 +38,7 @@ program test301
 		print( nizch[jedan * 2]);
 
 
-		bodovi = ((pet * jedan - 1) * 2 - (3 % 2 + 3 * 2 - 3) - 1 * 0);
+		bodovi = bodovi + ((pet * jedan - 1) * 2 - (3 % 2 + 3 * 2 - 3) - 1 * 0);
 		print(bodovi);
 
 

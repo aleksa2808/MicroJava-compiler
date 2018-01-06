@@ -6,8 +6,8 @@ import org.apache.log4j.*;
 import rs.ac.bg.etf.pp1.ast.*;
 
 parser code {:
-    int printCallCount = 0;
     boolean errorDetected = false;
+    boolean fatalErrorDetected = false;
 
     Logger log = Logger.getLogger(getClass());
 
@@ -24,11 +24,12 @@ parser code {:
     }
 
     public void unrecovered_syntax_error(Symbol cur_token) throws java.lang.Exception {
-        errorDetected = true;
+        fatalErrorDetected = true;
         report_fatal_error("Fatalna greska, parsiranje se ne moze nastaviti", cur_token);
     }
 
     public void report_error(String message, Object info) {
+        errorDetected = true;
         StringBuilder msg = new StringBuilder(message);
         if (info instanceof Symbol) {
             msg.append(" na liniji ").append(((Symbol)info).left);
@@ -106,9 +107,11 @@ nonterminal FormParDecl FormParDecl;
 non terminal Statement Statement;
 nonterminal IfCondition IfCondition;
 nonterminal IfDummy IfDummy;
+nonterminal IfCondParen IfCondParen;
 nonterminal OptElseBranch OptElseBranch;
 nonterminal ElseDummy ElseDummy;
-nonterminal DoWhileDummy DoWhileDummy;
+nonterminal DoDummy DoDummy;
+nonterminal WhileDummy WhileDummy;
 non terminal DesignatorStatement DesignatorStatement;
 nonterminal PreActParsDummy PreActParsDummy;
 nonterminal OptActPars OptActPars;
@@ -341,7 +344,7 @@ Statement ::= (Statement_Desig) DesignatorStatement:D1 {: RESULT=new Statement_D
               |
               (Statement_If) IfCondition:I1 Statement:S2 OptElseBranch:O3 {: RESULT=new Statement_If(I1, S2, O3); RESULT.setLine(I1left); :}
               |
-              (Statement_DoWhile) DO DoWhileDummy:D1 Statement:S2 WHILE LPAREN Condition:C3 RPAREN SEMI {: RESULT=new Statement_DoWhile(D1, S2, C3); RESULT.setLine(D1left); :}
+              (Statement_DoWhile) DoDummy:D1 Statement:S2 WhileDummy:W3 LPAREN Condition:C4 RPAREN SEMI {: RESULT=new Statement_DoWhile(D1, S2, W3, C4); RESULT.setLine(D1left); :}
               |
               (Statement_Break) BREAK SEMI {: RESULT=new Statement_Break(); :}
               |
@@ -358,13 +361,15 @@ Statement ::= (Statement_Desig) DesignatorStatement:D1 {: RESULT=new Statement_D
               (Statement_Brace) LBRACE StatementList:S1 RBRACE {: RESULT=new Statement_Brace(S1); RESULT.setLine(S1left); :}
               ;
 
-IfCondition ::= (IfCondition_Cond) IfDummy:I1 LPAREN Condition:C2 RPAREN {: RESULT=new IfCondition_Cond(I1, C2); RESULT.setLine(I1left); :}
-                |
-                (IfCondition_Error) IfDummy:I1 LPAREN error:e RPAREN
-                {: parser.report_info("Oporavak od greske u 'if' konstrukciji na liniji " + eleft, null); :} {: RESULT=new IfCondition_Error(I1); RESULT.setLine(I1left); :}
-                ;
+IfCondition ::= (IfCondition_Cond) IfDummy:I1 IfCondParen:I2 {: RESULT=new IfCondition_Cond(I1, I2); RESULT.setLine(I1left); :} ;
 
 IfDummy ::= (IfDummy) IF {: RESULT=new IfDummy(); :} ;
+
+IfCondParen ::= (IfCondParen_Cond) LPAREN Condition:C1 RPAREN {: RESULT=new IfCondParen_Cond(C1); RESULT.setLine(C1left); :}
+                |
+                (IfCondParen_Error) LPAREN error:e RPAREN
+                {: parser.report_info("Oporavak od greske u 'if' konstrukciji na liniji " + eleft, null); :} {: RESULT=new IfCondParen_Error(); :}
+                ;
 
 OptElseBranch ::= (OptElseBranch_NoEps) ElseDummy:E1 Statement:S2 {: RESULT=new OptElseBranch_NoEps(E1, S2); RESULT.setLine(E1left); :}
                   |
@@ -373,7 +378,9 @@ OptElseBranch ::= (OptElseBranch_NoEps) ElseDummy:E1 Statement:S2 {: RESULT=new 
 
 ElseDummy ::= (ElseDummy) ELSE {: RESULT=new ElseDummy(); :} ;
 
-DoWhileDummy ::= (DoWhileDummy) {: RESULT=new DoWhileDummy(); :} /* epsilon */ ;
+DoDummy ::= (DoDummy) DO {: RESULT=new DoDummy(); :} ;
+
+WhileDummy ::= (WhileDummy) WHILE {: RESULT=new WhileDummy(); :} ;
 
 OptExpr ::= (OptExpr_NoEps) Expr:E1 {: RESULT=new OptExpr_NoEps(E1); RESULT.setLine(E1left); :}
             |

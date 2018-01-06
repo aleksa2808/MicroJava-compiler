@@ -25,7 +25,6 @@ public class SemanticAnalyzer extends VisitorAdaptor {
     private Obj currentMethod = Tab.noObj;
     private ArrayList<Obj> currentMethFormPars = null;
     private Stack<ArrayList<Struct>> currentActParTypesStack;
-    private String lastDesigName = "";
 
     private Map<Struct, Struct> classInheritanceMap;
     private Map<Obj, Obj> methodOriginMap;
@@ -71,6 +70,26 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 
     private void report_info(String message) {
         System.out.println(message);
+    }
+
+    private void report_obj(Obj obj, int line) {
+        SymbolTableVisitor symTableVisitor = new SimpleSymbolTableVisitor(true);
+
+        if (    // NIVO A
+                obj.getKind() == Obj.Con
+                        || obj.getKind() == Obj.Var && obj.getLevel() == 0
+                        || obj.getKind() == Obj.Var && obj.getLevel() > 0
+                        // NIVO B
+                        || obj.getKind() == Obj.Meth && obj.getLevel() == 0
+                        || obj.getKind() == Obj.Elem
+                        || obj.getKind() == Obj.Var && obj.getFpPos() > 0
+                        // NIVO C
+                        || obj.getKind() == Obj.Type && obj.getType().getKind() == Struct.Class
+                        || obj.getKind() == Obj.Fld
+                        || obj.getKind() == Obj.Meth && obj.getLevel() > 0) {
+            symTableVisitor.visitObjNode(obj);
+            report_info("Pretraga na " + line + "(" + obj.getName() + "), nadjeno " + symTableVisitor.getOutput());
+        }
     }
 
     private Obj varInsert(String varName, Struct varType, int varLine) {
@@ -511,8 +530,7 @@ public class SemanticAnalyzer extends VisitorAdaptor {
         ArrayList<Struct> currentActParTypes = currentActParTypesStack.pop();
 
         if (desigObj.getKind() != Obj.Meth) {
-            // TODO: lastDesigName moze doci i iz actpars
-            report_error("Greska na " + functionCall.getLine() + "(" + lastDesigName + ") nije funkcija");
+            report_error("Greska na " + functionCall.getLine() + "(" + desigObj.getName() + ") nije funkcija");
 
             functionCall.struct = Tab.noType;
         } else {
@@ -606,9 +624,9 @@ public class SemanticAnalyzer extends VisitorAdaptor {
         optExpr_eps.struct = Tab.noType;
     }
 
-    public void visit(IfCondition_Cond ifCondition_cond) {
-        if (!ifCondition_cond.getCondition().struct.equals(TabExt.boolType)) {
-            report_error("Greska na " + ifCondition_cond.getLine() + ": if uslov nije tipa bool");
+    public void visit(IfCondParen_Cond ifCondParen_cond) {
+        if (!ifCondParen_cond.getCondition().struct.equals(TabExt.boolType)) {
+            report_error("Greska na " + ifCondParen_cond.getLine() + ": if uslov nije tipa bool");
         }
     }
 
@@ -620,7 +638,7 @@ public class SemanticAnalyzer extends VisitorAdaptor {
         doWhileDepth--;
     }
 
-    public void visit(DoWhileDummy doWhileDummy) {
+    public void visit(DoDummy doDummy) {
         doWhileDepth++;
     }
 
@@ -702,6 +720,14 @@ public class SemanticAnalyzer extends VisitorAdaptor {
     }
 
     public void visit(Factor_Desig factor_desig) {
+        Obj desigObj = factor_desig.getDesignator().obj;
+        int kind = desigObj.getKind();
+
+        // TODO: racvanje od spec, quadruple check
+        if (kind != Obj.Con && kind != Obj.Var && kind != Obj.Elem && kind != Obj.Fld ) {
+            report_error("Greska na " + factor_desig.getLine() + "(" + desigObj.getName() + ") nije promenljiva");
+        }
+
         factor_desig.struct = factor_desig.getDesignator().obj.getType();
     }
 
@@ -714,7 +740,8 @@ public class SemanticAnalyzer extends VisitorAdaptor {
     }
 
     public void visit(Factor_New factor_new) {
-        if (factor_new.getType().obj.getType().getKind() != Struct.Class || factor_new.getType().obj.getType().equals(Tab.nullType)) {
+        Obj typeObj = factor_new.getType().obj;
+        if (typeObj.getType().getKind() != Struct.Class || typeObj.getType().equals(Tab.nullType)) {
             report_error("Greska na " + factor_new.getLine() + ": tip u new iskazu ne predstavlja klasu");
         } else {
             report_obj(factor_new.getType().obj, factor_new.getType().getLine());
@@ -737,14 +764,18 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 
     public void visit(Designator_Field designator_field) {
         Obj desigObj = designator_field.getDesignator().obj;
+        int kind = desigObj.getKind();
+        designator_field.obj = Tab.noObj;
 
-        if (desigObj.getType().getKind() != Struct.Class) {
-            report_error("Greska na " + designator_field.getLine() + "(" + lastDesigName + ") nije klasa");
-            designator_field.obj = Tab.noObj;
+        // TODO: racvanje od spec, quadruple check
+        if (kind != Obj.Var && kind != Obj.Elem && kind != Obj.Fld) {
+            report_error("Greska na " + designator_field.getLine() + "(" + desigObj.getName() + ") nije objekat");
+            // u slucaju Obj.Type moze se pristupati static poljima, mada to u ovom projektu nije implementirano
+        } else if (desigObj.getType().getKind() != Struct.Class) {
+            report_error("Greska na " + designator_field.getLine() + "(" + desigObj.getName() + ") nije klasnog tipa");
         } else {
-            Struct classStruct = designator_field.getDesignator().obj.getType();
-            Collection<Obj> possibleNextList = classStruct.getMembers().symbols();
-            if (!currentClass.equals(Tab.noObj) && !currentMethod.equals(Tab.noObj) && classStruct.equals(currentClass.getType())) {
+            Collection<Obj> possibleNextList = desigObj.getType().getMembers().symbols();
+            if (!currentClass.equals(Tab.noObj) && !currentMethod.equals(Tab.noObj) && desigObj.getType().equals(currentClass.getType())) {
                 // specijalni slucaj, objekti klase su jos uvek (currentScope - 1) (scope metode je trenutni)
                 possibleNextList = Tab.currentScope().getOuter().values();
             }
@@ -758,16 +789,18 @@ public class SemanticAnalyzer extends VisitorAdaptor {
             }
         }
 
-        lastDesigName = designator_field.getI2();
+        // TODO: dubl chek
+        if (designator_field.obj.equals(Tab.noObj)) {
+            designator_field.obj = new Obj(Tab.noObj.getKind(), designator_field.getI2(), Tab.noType);
+        }
     }
 
     public void visit(Designator_Array designator_array) {
         Obj desigObj = designator_array.getDesignator().obj;
+        designator_array.obj = Tab.noObj;
 
         if (desigObj.getType().getKind() != Struct.Array) {
-            report_error("Greska na " + designator_array.getLine() + "(" + lastDesigName + ") nije niz");
-
-            designator_array.obj = Tab.noObj;
+            report_error("Greska na " + designator_array.getLine() + "(" + desigObj.getName() + ") nije niz");
         } else {
             designator_array.obj = new Obj(Obj.Elem, desigObj.getName() + "_elem", desigObj.getType().getElemType());
 
@@ -778,37 +811,22 @@ public class SemanticAnalyzer extends VisitorAdaptor {
             }
         }
 
-        lastDesigName += "[*]";
+        // TODO: dubl chek
+        if (designator_array.obj.equals(Tab.noObj)) {
+            designator_array.obj = new Obj(Tab.noObj.getKind(), desigObj.getName() + "_elem", Tab.noType);
+        }
     }
 
     public void visit(Designator_Ident designator_ident) {
         designator_ident.obj = Tab.find(designator_ident.getI1());
-        lastDesigName = designator_ident.getI1();
 
         if (designator_ident.obj.equals(Tab.noObj)) {
-            report_error("Greska na " + designator_ident.getLine() + "(" + lastDesigName + ") nije nadjeno");
+            report_error("Greska na " + designator_ident.getLine() + "(" + designator_ident.getI1() + ") nije nadjeno");
+
+            // TODO: dubl chek
+            designator_ident.obj = new Obj(Tab.noObj.getKind(), designator_ident.getI1(), Tab.noType);
         } else {
             report_obj(designator_ident.obj, designator_ident.getLine());
-        }
-    }
-
-    private void report_obj(Obj obj, int line) {
-        SymbolTableVisitor symTableVisitor = new SimpleSymbolTableVisitor(true);
-
-        if (    // NIVO A
-                obj.getKind() == Obj.Con
-                || obj.getKind() == Obj.Var && obj.getLevel() == 0
-                || obj.getKind() == Obj.Var && obj.getLevel() > 0
-                // NIVO B
-                || obj.getKind() == Obj.Meth && obj.getLevel() == 0
-                || obj.getKind() == Obj.Elem
-                || obj.getKind() == Obj.Var && obj.getFpPos() > 0
-                // NIVO C
-                || obj.getKind() == Obj.Type && obj.getType().getKind() == Struct.Class
-                || obj.getKind() == Obj.Fld
-                || obj.getKind() == Obj.Meth && obj.getLevel() > 0) {
-            symTableVisitor.visitObjNode(obj);
-            report_info("Pretraga na " + line + "(" + obj.getName() + "), nadjeno " + symTableVisitor.getOutput());
         }
     }
 }

@@ -22,6 +22,7 @@ public class CodeGenerator extends VisitorAdaptor {
     private ArrayList<Integer> condTrueFixupList;
     private Stack<ArrayList<Integer>> condFalseFixupStack;
     private Stack<ArrayList<Integer>> breakFixupStack;
+    private Stack<ArrayList<Integer>> contFixupStack;
     private Stack<Integer> skipElseJmpAdrStack;
     private Stack<Boolean> isVirtualCallStack;
 
@@ -36,6 +37,7 @@ public class CodeGenerator extends VisitorAdaptor {
         condTrueFixupList = new ArrayList<>();
         condFalseFixupStack = new Stack<>();
         breakFixupStack = new Stack<>();
+        contFixupStack = new Stack<>();
         skipElseJmpAdrStack = new Stack<>();
         isVirtualCallStack = new Stack<>();
 
@@ -169,7 +171,7 @@ public class CodeGenerator extends VisitorAdaptor {
         condFalseFixupStack.pop();
     }
 
-	public void visit(IfCondition_Cond ifCondition_cond) {
+	public void visit(IfCondParen_Cond ifCondParen_cond) {
         Code.putFalseJump(relop.pop(), 0);
         condFalseFixupStack.peek().add(Code.pc - 2);
 
@@ -222,12 +224,21 @@ public class CodeGenerator extends VisitorAdaptor {
 
         condFalseFixupStack.pop();
         breakFixupStack.pop();
+        contFixupStack.pop();
     }
 
-    public void visit(DoWhileDummy doWhileDummy) {
+    public void visit(DoDummy doDummy) {
 	    doWhileTopStack.push(Code.pc);
-        condFalseFixupStack.push(new ArrayList<>());
         breakFixupStack.push(new ArrayList<>());
+        contFixupStack.push(new ArrayList<>());
+    }
+
+    public void visit(WhileDummy whileDummy) {
+        for (int adr : contFixupStack.peek()) {
+            Code.fixup(adr);
+        }
+
+        condFalseFixupStack.push(new ArrayList<>());
     }
 
     public void visit(Statement_Break statement_break) {
@@ -236,7 +247,8 @@ public class CodeGenerator extends VisitorAdaptor {
     }
 
     public void visit(Statement_Cont statement_cont) {
-        Code.putJump(doWhileTopStack.peek());
+        Code.putJump(0);
+        contFixupStack.peek().add(Code.pc - 2);
     }
 
 	public void visit(Statement_Return statement_return) {

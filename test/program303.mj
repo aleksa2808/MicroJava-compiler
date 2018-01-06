@@ -11,8 +11,8 @@ class Predmet
 	{
 		void postaviTezinu(int tezina) {this.tezina = tezina;}
 		void ucitajTezinu() { read(tezina); }
-//		void ispis( Predmet p) { print(p.vrsta); print(eol); print(p.tezina);}
-		int zapremina() { return 0;}
+		void ispis() { print(vrsta); print(eol); print(tezina); print(eol); }
+		int zapremina() { print('P'); return 0;}
 		int Q() {return zapremina() * tezina;}
 		void postaviVrstu(char vrsta) {this.vrsta = vrsta;}
 	}
@@ -27,8 +27,9 @@ class Sfera extends Predmet
 		int zapremina()
 		int z;
 		{
+		    print('S');
 			z = cinilac;
-			z=delilac;
+			z = z * (r / delilac);
 			return z;
 		}
 	}
@@ -38,13 +39,13 @@ class Kvadar extends Predmet
 {
 	int a, b, c;
 	{
-		void postaviTezinu(int t) {this.tezina = tezina; vrsta = 'k';}
+		void postaviTezinu(int tezina) {this.tezina = tezina; vrsta = 'k';}
 		void postaviStranice(int a, int b, int c) {this.a = a; this.b = b; this.c = c; vrsta = 'k';}
 		int zapremina()
 		int z;
 		{
-			z = a;
-			z=c;
+		    print('K');
+			z = a * b * c;
 			return z;
 		}
 	}
@@ -55,7 +56,6 @@ int tezinaK, tezinaS;
 {
 	void main() Predmet predmeti[]; int i; Sfera s1, s2, s3; Kvadar k1, k2, k3; int t;
 	{
-
 		predmeti = new Predmet[6];
 		s1 = new Sfera;
 		s2 = new Sfera;
@@ -81,10 +81,12 @@ int tezinaK, tezinaS;
 		predmeti[5] = k3;
 
 		read(t);
+		i = 0;
 		do
 		{
 			predmeti[i].postaviTezinu(t);
-		} while (true);
+			i++;
+		} while(i < 6);
 
 		i = 0;
 		zapreminaS = 0;
@@ -93,10 +95,10 @@ int tezinaK, tezinaS;
 		{
 			i++;
 			if(i % 2 == 0) continue;
-			zapreminaS = predmeti[i - 1].zapremina();
-			tezinaS = predmeti[i - 1].Q();
-//			Predmet.ispis(predmeti[i - 1]);
-		} while (true);
+			zapreminaS = zapreminaS + predmeti[i - 1].zapremina();
+			tezinaS = tezinaS + predmeti[i - 1].Q();
+			predmeti[i - 1].ispis();
+		} while(i < 6);
 
 		i = 0;
 		zapreminaK = 0; tezinaK = 0;
@@ -104,10 +106,10 @@ int tezinaK, tezinaS;
 		{
 			i++;
 			if(i % 2 == 1) continue;
-			zapreminaK = predmeti[i - 1].zapremina();
-			tezinaK = predmeti[i - 1].Q();
-//			Predmet.ispis(predmeti[i - 1]);
-		} while (true);
+			zapreminaK = zapreminaK + predmeti[i - 1].zapremina();
+			tezinaK = tezinaK + predmeti[i - 1].Q();
+			predmeti[i - 1].ispis();
+		} while(i < 6);
 
 		print(zapreminaS); print(eol);
 		print(zapreminaK); print(eol);
