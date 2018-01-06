@@ -30,8 +30,12 @@ parser code {:
 
     public void report_error(String message, Object info) {
         StringBuilder msg = new StringBuilder(message);
-        if (info instanceof Symbol)
+        if (info instanceof Symbol) {
             msg.append(" na liniji ").append(((Symbol)info).left);
+            Symbol s = (Symbol) info;
+            if (s != null && s.value != null)
+                msg.append(": " + s.value.toString());
+        }
         log.error(msg.toString());
     }
 
@@ -43,12 +47,12 @@ parser code {:
     }
 :}
 
-//scan with {:
-//    Symbol s = this.getScanner().next_token();
-////    if (s != null && s.value != null)
-////        log.info(s.toString() + " " + s.value.toString());
-//    return s;
-//:}
+scan with {:
+    Symbol s = this.getScanner().next_token();
+//    if (s != null && s.value != null)
+//        log.info(s.toString() + " " + s.value.toString());
+    return s;
+:}
 
 terminal PROG, BREAK, CLASS, ELSE, IF, NEW, PRINT, READ, RETURN, VOID, DO, WHILE, EXTENDS, CONTINUE, CONST;
 terminal String IDENT;
@@ -62,27 +66,28 @@ terminal SEMI, COMMA, DOT;
 terminal LPAREN, RPAREN, LSQUARE, RSQUARE, LBRACE, RBRACE;
 
 non terminal Program, GlobalDeclList, GlobalDecl, MethodDeclList;
-non terminal ConstDecl, ConstDeclDummy, ConstDeclMore, ConstValAssign;
-non terminal VarDecl, TypeDummy, VarDeclDefine, OptArrayIndicator, VarDeclMore;
-non terminal GlobalVarDecl, GlobalVarDeclDefine, GlobalVarDeclMore;
+non terminal ConstDecl, ConstValAssignList, ConstValAssign;
+non terminal VarDecl, TypeDummy, VarDeclDefine, VarDeclDefineList;
+non terminal GlobalVarDecl, GlobalVarDeclDefine, GlobalVarDeclDefineList;
 // Field Var start
 non terminal FieldVarDeclListLbrace, FieldVarDeclList, FieldVarDecl, FieldVarDeclDefineOrErrorSemi;
 non terminal FieldVarMoreListOrErrorSemi, FieldVarDeclLbrace, FieldVarDeclDefineOrErrorLbrace;
 non terminal FieldVarMoreListOrErrorLbrace, FieldVarErrorSemi, FieldVarErrorLbrace;
 // Field Var end
-non terminal ClassDecl, ClassNameExtend, ClassDeclExtHelper, FieldVarMethodDeclList;
-non terminal MethodDecl, MethodSignature, PreFormParsDummy, OptFormPars, VarDeclList, StatementList;
+non terminal ClassDecl, ClassNameExtend, OptExtendsIndicator, ClassDeclExtHelper, FieldVarMethodDeclList;
+non terminal MethodDecl, PreFormParsDummy, OptFormPars, VarDeclList, StatementList;
 non terminal FormPars, FormParDecl;
-non terminal Statement, IfCondition, OptElseBranch, DoWhileDummy, OptPrintMore;
+non terminal Statement, IfCondition, IfDummy, OptElseBranch, ElseDummy, DoWhileDummy;
 non terminal DesignatorStatement, PreActParsDummy, OptActPars;
 non terminal ActPars, ActPar;
-non terminal DesignatorMore, DesignatorMoreChoice;
+non terminal OrDummy, AndDummy;
+non terminal PreArrIdxDummy;
 non terminal Relop;
 non terminal Addop;
 non terminal Mulop;
 
-non terminal rs.etf.pp1.symboltable.concepts.Obj ProgName, ConstVal, Designator;
-non terminal rs.etf.pp1.symboltable.concepts.Struct OptExtendsIndicator, VoidableType, Type, Assignment, FunctionCall, OptExpr, Condition, CondTerm, CondFact, Expr, Term, Factor;
+non terminal rs.etf.pp1.symboltable.concepts.Obj ProgName, ConstVal, MethodSignature, ClassName, VoidableType, Type, Designator;
+non terminal rs.etf.pp1.symboltable.concepts.Struct Assignment, FunctionCall, OptExpr, Condition, CondTerm, CondFact, Expr, Term, Factor;
 
 
 precedence left ELSE;
@@ -115,9 +120,12 @@ MethodDeclList ::= (MethodDeclList_NoEps) MethodDeclList MethodDecl
 /***************************************************************************************************************************
 * ConstDecl = ʺconstʺ Type identʺ=ʺ(numConst | charConst | boolConst) {, ident ʺ=ʺ (numConst | charConst | boolConst)} ʺ;ʺ *
 ***************************************************************************************************************************/
-ConstDecl ::= (ConstDecl) CONST Type ConstDeclDummy ConstValAssign ConstDeclMore SEMI ;
+ConstDecl ::= (ConstDecl) CONST TypeDummy ConstValAssignList SEMI ;
 
-ConstDeclDummy ::= (ConstDeclDummy) /* epsilon */ ;
+ConstValAssignList ::= (ConstValAssignList_List) ConstValAssignList COMMA ConstValAssign
+                       |
+                       (ConstValAssignList_Item) ConstValAssign
+                       ;
 
 ConstValAssign ::= (ConstValAssign) IDENT ASSIGN ConstVal ;
 
@@ -128,32 +136,30 @@ ConstVal ::= (ConstVal_Num) NUM_CONST
              (ConstVal_Bool) BOOL_CONST
              ;
 
-ConstDeclMore ::= (ConstDeclMore_NoEps) ConstDeclMore COMMA ConstValAssign
-                  |
-                  (ConstDeclMore_Eps) /* epsilon */
-                  ;
-
 /***********************************************************
 * VarDecl = Type ident [ʺ[ʺ ʺ]ʺ] {ʺ,ʺ ident [ʺ[ʺ ʺ]ʺ]} ʺ;ʺ *
 ***********************************************************/
-VarDecl ::= (VarDecl) TypeDummy VarDeclDefine VarDeclMore SEMI ;
+VarDecl ::= (VarDecl) TypeDummy VarDeclDefineList SEMI ;
 
 TypeDummy ::= (TypeDummy) Type ;
 
-VarDeclDefine ::= (VarDeclDefine) IDENT OptArrayIndicator ;
-
-OptArrayIndicator ::= (OptArrayIndicator_NoEps) LSQUARE RSQUARE
+VarDeclDefineList ::= (VarDeclDefineList_List) VarDeclDefineList COMMA VarDeclDefine
                       |
-                      (OptArrayIndicator_Eps) /* epsilon */
+                      (VarDeclDefineList_Item) VarDeclDefine
                       ;
 
-VarDeclMore ::= (VarDeclMore_NoEps) VarDeclMore COMMA VarDeclDefine
-                |
-                (VarDeclMore_Eps) /* epsilon */
-                ;
+VarDeclDefine ::= (VarDeclDefine_Single) IDENT
+                  |
+                  (VarDeclDefine_Array) IDENT LSQUARE RSQUARE
+                  ;
 
 
-GlobalVarDecl ::= (GlobalVarDecl) TypeDummy GlobalVarDeclDefine GlobalVarDeclMore SEMI ;
+GlobalVarDecl ::= (GlobalVarDecl) TypeDummy GlobalVarDeclDefineList SEMI ;
+
+GlobalVarDeclDefineList ::= (GlobalVarDeclDefineList_List) GlobalVarDeclDefineList COMMA GlobalVarDeclDefine
+                            |
+                            (GlobalVarDeclDefineList_Item) GlobalVarDeclDefine
+                            ;
 
 GlobalVarDeclDefine ::= (GlobalVarDeclDefine_Define) VarDeclDefine
                         |
@@ -161,17 +167,14 @@ GlobalVarDeclDefine ::= (GlobalVarDeclDefine_Define) VarDeclDefine
                         {: parser.report_info("Oporavak od greske u definiciji globalne promenljive na liniji " + eleft, null); :}
                         ;
 
-GlobalVarDeclMore ::= (GlobalVarDeclMore_NoEps) GlobalVarDeclMore COMMA GlobalVarDeclDefine
-                      |
-                      (GlobalVarDeclMore_Eps) /* epsilon */
-                      ;
-
 /*************************************************************************************
 * ClassDecl = ʺclassʺ ident [ʺextendsʺ Type] ʺ{ʺ{VarDecl} [ʺ{ʺ {MethodDecl} ʺ}ʺ] ʺ}ʺ *
 *************************************************************************************/
 ClassDecl ::= (ClassDecl) CLASS ClassNameExtend FieldVarMethodDeclList RBRACE ;
 
-ClassNameExtend ::= (ClassNameExtend) IDENT OptExtendsIndicator ;
+ClassNameExtend ::= (ClassNameExtend) ClassName OptExtendsIndicator ;
+
+ClassName ::= (ClassName) IDENT ;
 
 OptExtendsIndicator ::= (OptExtendsIndicator_NoEps) EXTENDS Type LBRACE
                         |
@@ -243,7 +246,7 @@ FieldVarErrorLbrace ::= (FieldVarErrorLbrace) error:e LBRACE
 ***************************************************************************************/
 MethodDecl ::= (MethodDecl) MethodSignature VarDeclList LBRACE StatementList RBRACE ;
 
-MethodSignature ::= (MethodSignature) VoidableType IDENT PreFormParsDummy LPAREN OptFormPars RPAREN ;
+MethodSignature ::= (MethodSignature) VoidableType IDENT LPAREN PreFormParsDummy OptFormPars RPAREN ;
 
 VoidableType ::= (VoidableType_Type) Type
                  |
@@ -275,7 +278,9 @@ FormPars ::= (FormPars_List) FormPars COMMA FormParDecl
              (FormPars_Decl) FormParDecl
              ;
 
-FormParDecl ::= (FormParDecl_Ident) Type IDENT OptArrayIndicator
+FormParDecl ::= (FormParDecl_Single) Type IDENT
+                |
+                (FormParDecl_Array) Type IDENT LSQUARE RSQUARE
                 |
                 (FormParDecl_Error) error:e
                 {: parser.report_info("Oporavak od greske u deklaraciji formalnih parametara na liniji " + eleft, null); :}
@@ -311,21 +316,27 @@ Statement ::= (Statement_Desig) DesignatorStatement
               |
               (Statement_Read) READ LPAREN Designator RPAREN SEMI
               |
-              (Statement_Print) PRINT LPAREN Expr OptPrintMore RPAREN SEMI
+              (Statement_Print) PRINT LPAREN Expr RPAREN SEMI
+              |
+              (Statement_PrintParam) PRINT LPAREN Expr COMMA NUM_CONST RPAREN SEMI
               |
               (Statement_Brace) LBRACE StatementList RBRACE
               ;
 
-IfCondition ::= (IfCondition_Cond) IF LPAREN Condition RPAREN
+IfCondition ::= (IfCondition_Cond) IfDummy LPAREN Condition RPAREN
                 |
-                (IfCondition_Error) IF LPAREN error:e RPAREN
+                (IfCondition_Error) IfDummy LPAREN error:e RPAREN
                 {: parser.report_info("Oporavak od greske u 'if' konstrukciji na liniji " + eleft, null); :}
                 ;
 
-OptElseBranch ::= (OptElseBranch_NoEps) ELSE Statement
+IfDummy ::= (IfDummy) IF ;
+
+OptElseBranch ::= (OptElseBranch_NoEps) ElseDummy Statement
                   |
                   (OptElseBranch_Eps) /* epsilon */
                   ;
+
+ElseDummy ::= (ElseDummy) ELSE ;
 
 DoWhileDummy ::= (DoWhileDummy) /* epsilon */ ;
 
@@ -333,11 +344,6 @@ OptExpr ::= (OptExpr_NoEps) Expr
             |
             (OptExpr_Eps) /* epsilon */
             ;
-
-OptPrintMore ::= (OptPrintMore_NoEps) COMMA NUM_CONST
-                 |
-                 (OptPrintMore_Eps) /* epsilon */
-                 ;
 
 /*******************************************************************************
 * DesignatorStatement = Designator (ʺ=ʺ Expr | ʺ(ʺ [ActPars] ʺ)ʺ | ʺ++ʺ | ʺ--ʺ) *
@@ -357,7 +363,7 @@ Assignment ::= (Assignment_Expr) ASSIGN Expr SEMI
                {: parser.report_info("Oporavak od greske u konstrukciji iskaza dodele na liniji " + eleft, null); :}
                ;
 
-FunctionCall ::= (FunctionCall) Designator PreActParsDummy LPAREN OptActPars RPAREN ;
+FunctionCall ::= (FunctionCall) Designator LPAREN PreActParsDummy OptActPars RPAREN ;
 
 PreActParsDummy ::= (PreActParsDummy) /* epsilon */ ;
 
@@ -379,18 +385,22 @@ ActPar ::= (ActPar) Expr ;
 /***************************************
 * Condition = CondTerm {ʺ||ʺ CondTerm} *
 ***************************************/
-Condition ::= (Condition_Chain) Condition OP_OR CondTerm
+Condition ::= (Condition_Chain) Condition OrDummy CondTerm
               |
               (Condition_Item) CondTerm
               ;
 
+OrDummy ::= (OrDummy) OP_OR ;
+
 /**************************************
 * CondTerm = CondFact {ʺ&&ʺ CondFact} *
 **************************************/
-CondTerm ::= (CondTerm_Chain) CondTerm OP_AND CondFact
+CondTerm ::= (CondTerm_Chain) CondTerm AndDummy CondFact
              |
              (CondTerm_Item) CondFact
              ;
+
+AndDummy ::= (AndDummy) OP_AND ;
 
 /*******************************
 * CondFact = Expr [Relop Expr] *
@@ -405,17 +415,17 @@ CondFact ::= (CondFact_Expr) Expr
 *********************************/
 Expr ::= (Expr_Term) Term
          |
-         (Expr_SubTerm) OP_SUB Term
+         (Expr_Neg) OP_SUB Term
          |
-         (Expr_AddopTerm) Expr Addop Term
+         (Expr_Addop) Expr Addop Term
          ;
 
 /*******************************
 * Term = Factor {Mulop Factor} *
 *******************************/
-Term ::= (Term_Item) Factor
+Term ::= (Term_Factor) Factor
          |
-         (Term_Chain) Term Mulop Factor
+         (Term_Mulop) Term Mulop Factor
          ;
 
 /******************************************
@@ -430,11 +440,7 @@ Factor ::= (Factor_Desig) Designator
            |
            (Factor_DesigFunc) FunctionCall
            |
-           (Factor_Num) NUM_CONST
-           |
-           (Factor_Char) CHAR_CONST
-           |
-           (Factor_Bool) BOOL_CONST
+           (Factor_ConstVal) ConstVal
            |
            (Factor_New) NEW Type
            |
@@ -446,17 +452,14 @@ Factor ::= (Factor_Desig) Designator
 /************************************************
 * Designator = ident {ʺ.ʺ ident | ʺ[ʺ Expr ʺ]ʺ} *
 ************************************************/
-Designator ::= (Designator) IDENT DesignatorMore ;
+Designator ::= (Designator_Field) Designator DOT IDENT
+               |
+               (Designator_Array) Designator LSQUARE PreArrIdxDummy Expr RSQUARE
+               |
+               (Designator_Ident) IDENT
+               ;
 
-DesignatorMore ::= (DesignatorMore_NoEps) DesignatorMoreChoice DesignatorMore
-                   |
-                   (DesignatorMore_Eps) /* epsilon */
-                   ;
-
-DesignatorMoreChoice ::= (DesignatorMoreChoice_Dot) DOT IDENT
-                         |
-                         (DesignatorMoreChoice_Array) LSQUARE Expr RSQUARE
-                         ;
+PreArrIdxDummy ::= (PreArrIdxDummy) /* epsilon */ ;
 
 /************************************************
 * Relop = ʺ==ʺ | ʺ!=ʺ | ʺ>ʺ | ʺ>=ʺ | ʺ<ʺ | ʺ<=ʺ *

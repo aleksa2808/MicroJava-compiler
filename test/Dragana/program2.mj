@@ -7,7 +7,7 @@ class A{
 const int pi = 3, e = 2;
 
 class B extends A{
-	int i; int x[];
+	int i;
 	{
 		int getValue(int a) 
 		int b; bool c;

@@ -1,18 +1,17 @@
 program MJProgram
-	const int x = 2; int y, z;
-	const bool y = true;
-	const char a = 'a', b = 'b', c = false;
+	int x, y, z;
+	const char a = 'a', b = 'b';
 {
 
-	int k () int c; {
+	int k (bool dummy) int c; {
 		c = 0;
 		return c+3;
 	}
 
-	int main() {
+	void main() {
 		print(1);
 		x = y+3;
-		k();
+		k(true);
 		print(2);
 	}
 }

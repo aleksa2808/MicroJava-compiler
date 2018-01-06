@@ -1,0 +1,41 @@
+program cond
+const int max = 12;
+char c; int i;
+class B { int x, y; }
+{
+    int fun() {
+        if (true) {
+        } else {
+            return 1;
+        }
+    }
+
+    void main () int iarr[]; B b; int n; bool flag;
+    {
+        iarr = new int[7];
+        i = 50;
+        flag = true;
+        do {
+            n++;
+            if (flag) {
+                //print('?');
+                flag = false;
+                continue;
+            } else {
+                //print('!');
+                flag = true;
+
+                if (i < 5) {
+                    do {
+                        print(1);
+                        i--;
+                    } while (i > 0);
+                    break;
+                }
+            }
+            i--;
+        } while (i > 0);
+
+        print(n, 10);
+    }
+}

@@ -18,7 +18,7 @@ class A{
 const int pi = 3, e = 2;
 
 class B extends A{
-	int i; int x[];
+	int i; int xx[];
 	A theAA;
 	{	
 		void voidtest(int a,char b)
@@ -35,6 +35,10 @@ class B extends A{
 		{
 			 this.i=6;	
 			 return this.i + this.x[0] + this.met(a);
+		}
+
+		int pr1() {
+			return pr();
 		}
 	}
 }
@@ -59,7 +63,6 @@ int met(int par){return par-1;}
 
 void main() A a; B b;C c; int i,y,z; int x[]; bool bulin;
 {
-	
 	bulin = true;                
 	print(bulin);
 	a = new A;

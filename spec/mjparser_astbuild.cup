@@ -30,8 +30,12 @@ parser code {:
 
     public void report_error(String message, Object info) {
         StringBuilder msg = new StringBuilder(message);
-        if (info instanceof Symbol)
+        if (info instanceof Symbol) {
             msg.append(" na liniji ").append(((Symbol)info).left);
+            Symbol s = (Symbol) info;
+            if (s != null && s.value != null)
+                msg.append(": " + s.value.toString());
+        }
         log.error(msg.toString());
     }
 
@@ -43,12 +47,12 @@ parser code {:
     }
 :}
 
-//scan with {:
-//    Symbol s = this.getScanner().next_token();
-////    if (s != null && s.value != null)
-////        log.info(s.toString() + " " + s.value.toString());
-//    return s;
-//:}
+scan with {:
+    Symbol s = this.getScanner().next_token();
+//    if (s != null && s.value != null)
+//        log.info(s.toString() + " " + s.value.toString());
+    return s;
+:}
 
 terminal PROG, BREAK, CLASS, ELSE, IF, NEW, PRINT, READ, RETURN, VOID, DO, WHILE, EXTENDS, CONTINUE, CONST;
 terminal String IDENT;
@@ -66,17 +70,15 @@ nonterminal GlobalDeclList GlobalDeclList;
 nonterminal GlobalDecl GlobalDecl;
 nonterminal MethodDeclList MethodDeclList;
 non terminal ConstDecl ConstDecl;
-nonterminal ConstDeclDummy ConstDeclDummy;
-nonterminal ConstDeclMore ConstDeclMore;
+nonterminal ConstValAssignList ConstValAssignList;
 nonterminal ConstValAssign ConstValAssign;
 non terminal VarDecl VarDecl;
 nonterminal TypeDummy TypeDummy;
 nonterminal VarDeclDefine VarDeclDefine;
-nonterminal OptArrayIndicator OptArrayIndicator;
-nonterminal VarDeclMore VarDeclMore;
+nonterminal VarDeclDefineList VarDeclDefineList;
 non terminal GlobalVarDecl GlobalVarDecl;
 nonterminal GlobalVarDeclDefine GlobalVarDeclDefine;
-nonterminal GlobalVarDeclMore GlobalVarDeclMore;
+nonterminal GlobalVarDeclDefineList GlobalVarDeclDefineList;
 // Field Var start
 non terminal FieldVarDeclListLbrace FieldVarDeclListLbrace;
 nonterminal FieldVarDeclList FieldVarDeclList;
@@ -91,10 +93,10 @@ nonterminal FieldVarErrorLbrace FieldVarErrorLbrace;
 // Field Var end
 non terminal ClassDecl ClassDecl;
 nonterminal ClassNameExtend ClassNameExtend;
+nonterminal OptExtendsIndicator OptExtendsIndicator;
 nonterminal ClassDeclExtHelper ClassDeclExtHelper;
 nonterminal FieldVarMethodDeclList FieldVarMethodDeclList;
 non terminal MethodDecl MethodDecl;
-nonterminal MethodSignature MethodSignature;
 nonterminal PreFormParsDummy PreFormParsDummy;
 nonterminal OptFormPars OptFormPars;
 nonterminal VarDeclList VarDeclList;
@@ -103,22 +105,24 @@ non terminal FormPars FormPars;
 nonterminal FormParDecl FormParDecl;
 non terminal Statement Statement;
 nonterminal IfCondition IfCondition;
+nonterminal IfDummy IfDummy;
 nonterminal OptElseBranch OptElseBranch;
+nonterminal ElseDummy ElseDummy;
 nonterminal DoWhileDummy DoWhileDummy;
-nonterminal OptPrintMore OptPrintMore;
 non terminal DesignatorStatement DesignatorStatement;
 nonterminal PreActParsDummy PreActParsDummy;
 nonterminal OptActPars OptActPars;
 non terminal ActPars ActPars;
 nonterminal ActPar ActPar;
-non terminal DesignatorMore DesignatorMore;
-nonterminal DesignatorMoreChoice DesignatorMoreChoice;
+non terminal OrDummy OrDummy;
+nonterminal AndDummy AndDummy;
+non terminal PreArrIdxDummy PreArrIdxDummy;
 non terminal Relop Relop;
 non terminal Addop Addop;
 non terminal Mulop Mulop;
 
-non terminal rs.etf.pp1.symboltable.concepts.Obj ProgName, ConstVal, Designator;
-non terminal rs.etf.pp1.symboltable.concepts.Struct OptExtendsIndicator, VoidableType, Type, Assignment, FunctionCall, OptExpr, Condition, CondTerm, CondFact, Expr, Term, Factor;
+non terminal rs.etf.pp1.symboltable.concepts.Obj ProgName, ConstVal, MethodSignature, ClassName, VoidableType, Type, Designator;
+non terminal rs.etf.pp1.symboltable.concepts.Struct Assignment, FunctionCall, OptExpr, Condition, CondTerm, CondFact, Expr, Term, Factor;
 
 
 precedence left ELSE;
@@ -151,9 +155,12 @@ MethodDeclList ::= (MethodDeclList_NoEps) MethodDeclList:M1 MethodDecl:M2 {: RES
 /***************************************************************************************************************************
 * ConstDecl = ʺconstʺ Type identʺ=ʺ(numConst | charConst | boolConst) {, ident ʺ=ʺ (numConst | charConst | boolConst)} ʺ;ʺ *
 ***************************************************************************************************************************/
-ConstDecl ::= (ConstDecl) CONST Type:T1 ConstDeclDummy:C2 ConstValAssign:C3 ConstDeclMore:C4 SEMI {: RESULT=new ConstDecl(T1, C2, C3, C4); RESULT.setLine(T1left); :} ;
+ConstDecl ::= (ConstDecl) CONST TypeDummy:T1 ConstValAssignList:C2 SEMI {: RESULT=new ConstDecl(T1, C2); RESULT.setLine(T1left); :} ;
 
-ConstDeclDummy ::= (ConstDeclDummy) {: RESULT=new ConstDeclDummy(); :} /* epsilon */ ;
+ConstValAssignList ::= (ConstValAssignList_List) ConstValAssignList:C1 COMMA ConstValAssign:C2 {: RESULT=new ConstValAssignList_List(C1, C2); RESULT.setLine(C1left); :}
+                       |
+                       (ConstValAssignList_Item) ConstValAssign:C1 {: RESULT=new ConstValAssignList_Item(C1); RESULT.setLine(C1left); :}
+                       ;
 
 ConstValAssign ::= (ConstValAssign) IDENT:I1 ASSIGN ConstVal:C2 {: RESULT=new ConstValAssign(I1, C2); RESULT.setLine(I1left); :} ;
 
@@ -164,32 +171,30 @@ ConstVal ::= (ConstVal_Num) NUM_CONST:N1 {: RESULT=new ConstVal_Num(N1); RESULT.
              (ConstVal_Bool) BOOL_CONST:B1 {: RESULT=new ConstVal_Bool(B1); RESULT.setLine(B1left); :}
              ;
 
-ConstDeclMore ::= (ConstDeclMore_NoEps) ConstDeclMore:C1 COMMA ConstValAssign:C2 {: RESULT=new ConstDeclMore_NoEps(C1, C2); RESULT.setLine(C1left); :}
-                  |
-                  (ConstDeclMore_Eps) {: RESULT=new ConstDeclMore_Eps(); :} /* epsilon */
-                  ;
-
 /***********************************************************
 * VarDecl = Type ident [ʺ[ʺ ʺ]ʺ] {ʺ,ʺ ident [ʺ[ʺ ʺ]ʺ]} ʺ;ʺ *
 ***********************************************************/
-VarDecl ::= (VarDecl) TypeDummy:T1 VarDeclDefine:V2 VarDeclMore:V3 SEMI {: RESULT=new VarDecl(T1, V2, V3); RESULT.setLine(T1left); :} ;
+VarDecl ::= (VarDecl) TypeDummy:T1 VarDeclDefineList:V2 SEMI {: RESULT=new VarDecl(T1, V2); RESULT.setLine(T1left); :} ;
 
 TypeDummy ::= (TypeDummy) Type:T1 {: RESULT=new TypeDummy(T1); RESULT.setLine(T1left); :} ;
 
-VarDeclDefine ::= (VarDeclDefine) IDENT:I1 OptArrayIndicator:O2 {: RESULT=new VarDeclDefine(I1, O2); RESULT.setLine(I1left); :} ;
-
-OptArrayIndicator ::= (OptArrayIndicator_NoEps) LSQUARE RSQUARE {: RESULT=new OptArrayIndicator_NoEps(); :}
+VarDeclDefineList ::= (VarDeclDefineList_List) VarDeclDefineList:V1 COMMA VarDeclDefine:V2 {: RESULT=new VarDeclDefineList_List(V1, V2); RESULT.setLine(V1left); :}
                       |
-                      (OptArrayIndicator_Eps) {: RESULT=new OptArrayIndicator_Eps(); :} /* epsilon */
+                      (VarDeclDefineList_Item) VarDeclDefine:V1 {: RESULT=new VarDeclDefineList_Item(V1); RESULT.setLine(V1left); :}
                       ;
 
-VarDeclMore ::= (VarDeclMore_NoEps) VarDeclMore:V1 COMMA VarDeclDefine:V2 {: RESULT=new VarDeclMore_NoEps(V1, V2); RESULT.setLine(V1left); :}
-                |
-                (VarDeclMore_Eps) {: RESULT=new VarDeclMore_Eps(); :} /* epsilon */
-                ;
+VarDeclDefine ::= (VarDeclDefine_Single) IDENT:I1 {: RESULT=new VarDeclDefine_Single(I1); RESULT.setLine(I1left); :}
+                  |
+                  (VarDeclDefine_Array) IDENT:I1 LSQUARE RSQUARE {: RESULT=new VarDeclDefine_Array(I1); RESULT.setLine(I1left); :}
+                  ;
 
 
-GlobalVarDecl ::= (GlobalVarDecl) TypeDummy:T1 GlobalVarDeclDefine:G2 GlobalVarDeclMore:G3 SEMI {: RESULT=new GlobalVarDecl(T1, G2, G3); RESULT.setLine(T1left); :} ;
+GlobalVarDecl ::= (GlobalVarDecl) TypeDummy:T1 GlobalVarDeclDefineList:G2 SEMI {: RESULT=new GlobalVarDecl(T1, G2); RESULT.setLine(T1left); :} ;
+
+GlobalVarDeclDefineList ::= (GlobalVarDeclDefineList_List) GlobalVarDeclDefineList:G1 COMMA GlobalVarDeclDefine:G2 {: RESULT=new GlobalVarDeclDefineList_List(G1, G2); RESULT.setLine(G1left); :}
+                            |
+                            (GlobalVarDeclDefineList_Item) GlobalVarDeclDefine:G1 {: RESULT=new GlobalVarDeclDefineList_Item(G1); RESULT.setLine(G1left); :}
+                            ;
 
 GlobalVarDeclDefine ::= (GlobalVarDeclDefine_Define) VarDeclDefine:V1 {: RESULT=new GlobalVarDeclDefine_Define(V1); RESULT.setLine(V1left); :}
                         |
@@ -197,17 +202,14 @@ GlobalVarDeclDefine ::= (GlobalVarDeclDefine_Define) VarDeclDefine:V1 {: RESULT=
                         {: parser.report_info("Oporavak od greske u definiciji globalne promenljive na liniji " + eleft, null); :} {: RESULT=new GlobalVarDeclDefine_Error(); :}
                         ;
 
-GlobalVarDeclMore ::= (GlobalVarDeclMore_NoEps) GlobalVarDeclMore:G1 COMMA GlobalVarDeclDefine:G2 {: RESULT=new GlobalVarDeclMore_NoEps(G1, G2); RESULT.setLine(G1left); :}
-                      |
-                      (GlobalVarDeclMore_Eps) {: RESULT=new GlobalVarDeclMore_Eps(); :} /* epsilon */
-                      ;
-
 /*************************************************************************************
 * ClassDecl = ʺclassʺ ident [ʺextendsʺ Type] ʺ{ʺ{VarDecl} [ʺ{ʺ {MethodDecl} ʺ}ʺ] ʺ}ʺ *
 *************************************************************************************/
 ClassDecl ::= (ClassDecl) CLASS ClassNameExtend:C1 FieldVarMethodDeclList:F2 RBRACE {: RESULT=new ClassDecl(C1, F2); RESULT.setLine(C1left); :} ;
 
-ClassNameExtend ::= (ClassNameExtend) IDENT:I1 OptExtendsIndicator:O2 {: RESULT=new ClassNameExtend(I1, O2); RESULT.setLine(I1left); :} ;
+ClassNameExtend ::= (ClassNameExtend) ClassName:C1 OptExtendsIndicator:O2 {: RESULT=new ClassNameExtend(C1, O2); RESULT.setLine(C1left); :} ;
+
+ClassName ::= (ClassName) IDENT:I1 {: RESULT=new ClassName(I1); RESULT.setLine(I1left); :} ;
 
 OptExtendsIndicator ::= (OptExtendsIndicator_NoEps) EXTENDS Type:T1 LBRACE {: RESULT=new OptExtendsIndicator_NoEps(T1); RESULT.setLine(T1left); :}
                         |
@@ -279,7 +281,7 @@ FieldVarErrorLbrace ::= (FieldVarErrorLbrace) error:e LBRACE
 ***************************************************************************************/
 MethodDecl ::= (MethodDecl) MethodSignature:M1 VarDeclList:V2 LBRACE StatementList:S3 RBRACE {: RESULT=new MethodDecl(M1, V2, S3); RESULT.setLine(M1left); :} ;
 
-MethodSignature ::= (MethodSignature) VoidableType:V1 IDENT:I2 PreFormParsDummy:P3 LPAREN OptFormPars:O4 RPAREN {: RESULT=new MethodSignature(V1, I2, P3, O4); RESULT.setLine(V1left); :} ;
+MethodSignature ::= (MethodSignature) VoidableType:V1 IDENT:I2 LPAREN PreFormParsDummy:P3 OptFormPars:O4 RPAREN {: RESULT=new MethodSignature(V1, I2, P3, O4); RESULT.setLine(V1left); :} ;
 
 VoidableType ::= (VoidableType_Type) Type:T1 {: RESULT=new VoidableType_Type(T1); RESULT.setLine(T1left); :}
                  |
@@ -311,7 +313,9 @@ FormPars ::= (FormPars_List) FormPars:F1 COMMA FormParDecl:F2 {: RESULT=new Form
              (FormPars_Decl) FormParDecl:F1 {: RESULT=new FormPars_Decl(F1); RESULT.setLine(F1left); :}
              ;
 
-FormParDecl ::= (FormParDecl_Ident) Type:T1 IDENT:I2 OptArrayIndicator:O3 {: RESULT=new FormParDecl_Ident(T1, I2, O3); RESULT.setLine(T1left); :}
+FormParDecl ::= (FormParDecl_Single) Type:T1 IDENT:I2 {: RESULT=new FormParDecl_Single(T1, I2); RESULT.setLine(T1left); :}
+                |
+                (FormParDecl_Array) Type:T1 IDENT:I2 LSQUARE RSQUARE {: RESULT=new FormParDecl_Array(T1, I2); RESULT.setLine(T1left); :}
                 |
                 (FormParDecl_Error) error:e
                 {: parser.report_info("Oporavak od greske u deklaraciji formalnih parametara na liniji " + eleft, null); :} {: RESULT=new FormParDecl_Error(); :}
@@ -347,21 +351,27 @@ Statement ::= (Statement_Desig) DesignatorStatement:D1 {: RESULT=new Statement_D
               |
               (Statement_Read) READ LPAREN Designator:D1 RPAREN SEMI {: RESULT=new Statement_Read(D1); RESULT.setLine(D1left); :}
               |
-              (Statement_Print) PRINT LPAREN Expr:E1 OptPrintMore:O2 RPAREN SEMI {: RESULT=new Statement_Print(E1, O2); RESULT.setLine(E1left); :}
+              (Statement_Print) PRINT LPAREN Expr:E1 RPAREN SEMI {: RESULT=new Statement_Print(E1); RESULT.setLine(E1left); :}
+              |
+              (Statement_PrintParam) PRINT LPAREN Expr:E1 COMMA NUM_CONST:N2 RPAREN SEMI {: RESULT=new Statement_PrintParam(E1, N2); RESULT.setLine(E1left); :}
               |
               (Statement_Brace) LBRACE StatementList:S1 RBRACE {: RESULT=new Statement_Brace(S1); RESULT.setLine(S1left); :}
               ;
 
-IfCondition ::= (IfCondition_Cond) IF LPAREN Condition:C1 RPAREN {: RESULT=new IfCondition_Cond(C1); RESULT.setLine(C1left); :}
+IfCondition ::= (IfCondition_Cond) IfDummy:I1 LPAREN Condition:C2 RPAREN {: RESULT=new IfCondition_Cond(I1, C2); RESULT.setLine(I1left); :}
                 |
-                (IfCondition_Error) IF LPAREN error:e RPAREN
-                {: parser.report_info("Oporavak od greske u 'if' konstrukciji na liniji " + eleft, null); :} {: RESULT=new IfCondition_Error(); :}
+                (IfCondition_Error) IfDummy:I1 LPAREN error:e RPAREN
+                {: parser.report_info("Oporavak od greske u 'if' konstrukciji na liniji " + eleft, null); :} {: RESULT=new IfCondition_Error(I1); RESULT.setLine(I1left); :}
                 ;
 
-OptElseBranch ::= (OptElseBranch_NoEps) ELSE Statement:S1 {: RESULT=new OptElseBranch_NoEps(S1); RESULT.setLine(S1left); :}
+IfDummy ::= (IfDummy) IF {: RESULT=new IfDummy(); :} ;
+
+OptElseBranch ::= (OptElseBranch_NoEps) ElseDummy:E1 Statement:S2 {: RESULT=new OptElseBranch_NoEps(E1, S2); RESULT.setLine(E1left); :}
                   |
                   (OptElseBranch_Eps) {: RESULT=new OptElseBranch_Eps(); :} /* epsilon */
                   ;
+
+ElseDummy ::= (ElseDummy) ELSE {: RESULT=new ElseDummy(); :} ;
 
 DoWhileDummy ::= (DoWhileDummy) {: RESULT=new DoWhileDummy(); :} /* epsilon */ ;
 
@@ -369,11 +379,6 @@ OptExpr ::= (OptExpr_NoEps) Expr:E1 {: RESULT=new OptExpr_NoEps(E1); RESULT.setL
             |
             (OptExpr_Eps) {: RESULT=new OptExpr_Eps(); :} /* epsilon */
             ;
-
-OptPrintMore ::= (OptPrintMore_NoEps) COMMA NUM_CONST:N1 {: RESULT=new OptPrintMore_NoEps(N1); RESULT.setLine(N1left); :}
-                 |
-                 (OptPrintMore_Eps) {: RESULT=new OptPrintMore_Eps(); :} /* epsilon */
-                 ;
 
 /*******************************************************************************
 * DesignatorStatement = Designator (ʺ=ʺ Expr | ʺ(ʺ [ActPars] ʺ)ʺ | ʺ++ʺ | ʺ--ʺ) *
@@ -393,7 +398,7 @@ Assignment ::= (Assignment_Expr) ASSIGN Expr:E1 SEMI {: RESULT=new Assignment_Ex
                {: parser.report_info("Oporavak od greske u konstrukciji iskaza dodele na liniji " + eleft, null); :} {: RESULT=new Assignment_Error(); :}
                ;
 
-FunctionCall ::= (FunctionCall) Designator:D1 PreActParsDummy:P2 LPAREN OptActPars:O3 RPAREN {: RESULT=new FunctionCall(D1, P2, O3); RESULT.setLine(D1left); :} ;
+FunctionCall ::= (FunctionCall) Designator:D1 LPAREN PreActParsDummy:P2 OptActPars:O3 RPAREN {: RESULT=new FunctionCall(D1, P2, O3); RESULT.setLine(D1left); :} ;
 
 PreActParsDummy ::= (PreActParsDummy) {: RESULT=new PreActParsDummy(); :} /* epsilon */ ;
 
@@ -415,18 +420,22 @@ ActPar ::= (ActPar) Expr:E1 {: RESULT=new ActPar(E1); RESULT.setLine(E1left); :}
 /***************************************
 * Condition = CondTerm {ʺ||ʺ CondTerm} *
 ***************************************/
-Condition ::= (Condition_Chain) Condition:C1 OP_OR CondTerm:C2 {: RESULT=new Condition_Chain(C1, C2); RESULT.setLine(C1left); :}
+Condition ::= (Condition_Chain) Condition:C1 OrDummy:O2 CondTerm:C3 {: RESULT=new Condition_Chain(C1, O2, C3); RESULT.setLine(C1left); :}
               |
               (Condition_Item) CondTerm:C1 {: RESULT=new Condition_Item(C1); RESULT.setLine(C1left); :}
               ;
 
+OrDummy ::= (OrDummy) OP_OR {: RESULT=new OrDummy(); :} ;
+
 /**************************************
 * CondTerm = CondFact {ʺ&&ʺ CondFact} *
 **************************************/
-CondTerm ::= (CondTerm_Chain) CondTerm:C1 OP_AND CondFact:C2 {: RESULT=new CondTerm_Chain(C1, C2); RESULT.setLine(C1left); :}
+CondTerm ::= (CondTerm_Chain) CondTerm:C1 AndDummy:A2 CondFact:C3 {: RESULT=new CondTerm_Chain(C1, A2, C3); RESULT.setLine(C1left); :}
              |
              (CondTerm_Item) CondFact:C1 {: RESULT=new CondTerm_Item(C1); RESULT.setLine(C1left); :}
              ;
+
+AndDummy ::= (AndDummy) OP_AND {: RESULT=new AndDummy(); :} ;
 
 /*******************************
 * CondFact = Expr [Relop Expr] *
@@ -441,17 +450,17 @@ CondFact ::= (CondFact_Expr) Expr:E1 {: RESULT=new CondFact_Expr(E1); RESULT.set
 *********************************/
 Expr ::= (Expr_Term) Term:T1 {: RESULT=new Expr_Term(T1); RESULT.setLine(T1left); :}
          |
-         (Expr_SubTerm) OP_SUB Term:T1 {: RESULT=new Expr_SubTerm(T1); RESULT.setLine(T1left); :}
+         (Expr_Neg) OP_SUB Term:T1 {: RESULT=new Expr_Neg(T1); RESULT.setLine(T1left); :}
          |
-         (Expr_AddopTerm) Expr:E1 Addop:A2 Term:T3 {: RESULT=new Expr_AddopTerm(E1, A2, T3); RESULT.setLine(E1left); :}
+         (Expr_Addop) Expr:E1 Addop:A2 Term:T3 {: RESULT=new Expr_Addop(E1, A2, T3); RESULT.setLine(E1left); :}
          ;
 
 /*******************************
 * Term = Factor {Mulop Factor} *
 *******************************/
-Term ::= (Term_Item) Factor:F1 {: RESULT=new Term_Item(F1); RESULT.setLine(F1left); :}
+Term ::= (Term_Factor) Factor:F1 {: RESULT=new Term_Factor(F1); RESULT.setLine(F1left); :}
          |
-         (Term_Chain) Term:T1 Mulop:M2 Factor:F3 {: RESULT=new Term_Chain(T1, M2, F3); RESULT.setLine(T1left); :}
+         (Term_Mulop) Term:T1 Mulop:M2 Factor:F3 {: RESULT=new Term_Mulop(T1, M2, F3); RESULT.setLine(T1left); :}
          ;
 
 /******************************************
@@ -466,11 +475,7 @@ Factor ::= (Factor_Desig) Designator:D1 {: RESULT=new Factor_Desig(D1); RESULT.s
            |
            (Factor_DesigFunc) FunctionCall:F1 {: RESULT=new Factor_DesigFunc(F1); RESULT.setLine(F1left); :}
            |
-           (Factor_Num) NUM_CONST:N1 {: RESULT=new Factor_Num(N1); RESULT.setLine(N1left); :}
-           |
-           (Factor_Char) CHAR_CONST:C1 {: RESULT=new Factor_Char(C1); RESULT.setLine(C1left); :}
-           |
-           (Factor_Bool) BOOL_CONST:B1 {: RESULT=new Factor_Bool(B1); RESULT.setLine(B1left); :}
+           (Factor_ConstVal) ConstVal:C1 {: RESULT=new Factor_ConstVal(C1); RESULT.setLine(C1left); :}
            |
            (Factor_New) NEW Type:T1 {: RESULT=new Factor_New(T1); RESULT.setLine(T1left); :}
            |
@@ -482,17 +487,14 @@ Factor ::= (Factor_Desig) Designator:D1 {: RESULT=new Factor_Desig(D1); RESULT.s
 /************************************************
 * Designator = ident {ʺ.ʺ ident | ʺ[ʺ Expr ʺ]ʺ} *
 ************************************************/
-Designator ::= (Designator) IDENT:I1 DesignatorMore:D2 {: RESULT=new Designator(I1, D2); RESULT.setLine(I1left); :} ;
+Designator ::= (Designator_Field) Designator:D1 DOT IDENT:I2 {: RESULT=new Designator_Field(D1, I2); RESULT.setLine(D1left); :}
+               |
+               (Designator_Array) Designator:D1 LSQUARE PreArrIdxDummy:P2 Expr:E3 RSQUARE {: RESULT=new Designator_Array(D1, P2, E3); RESULT.setLine(D1left); :}
+               |
+               (Designator_Ident) IDENT:I1 {: RESULT=new Designator_Ident(I1); RESULT.setLine(I1left); :}
+               ;
 
-DesignatorMore ::= (DesignatorMore_NoEps) DesignatorMoreChoice:D1 DesignatorMore:D2 {: RESULT=new DesignatorMore_NoEps(D1, D2); RESULT.setLine(D1left); :}
-                   |
-                   (DesignatorMore_Eps) {: RESULT=new DesignatorMore_Eps(); :} /* epsilon */
-                   ;
-
-DesignatorMoreChoice ::= (DesignatorMoreChoice_Dot) DOT IDENT:I1 {: RESULT=new DesignatorMoreChoice_Dot(I1); RESULT.setLine(I1left); :}
-                         |
-                         (DesignatorMoreChoice_Array) LSQUARE Expr:E1 RSQUARE {: RESULT=new DesignatorMoreChoice_Array(E1); RESULT.setLine(E1left); :}
-                         ;
+PreArrIdxDummy ::= (PreArrIdxDummy) {: RESULT=new PreArrIdxDummy(); :} /* epsilon */ ;
 
 /************************************************
 * Relop = ʺ==ʺ | ʺ!=ʺ | ʺ>ʺ | ʺ>=ʺ | ʺ<ʺ | ʺ<=ʺ *

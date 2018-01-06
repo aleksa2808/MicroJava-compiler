@@ -1,0 +1,30 @@
+program OOMJ
+    class TCalc { // TaxCalculator
+        int taxV; // [0,100] interval
+        {
+            int calc (int cost) { return cost*(1+taxV); }
+            int tax() { return taxV; }
+        }
+    }
+
+    class ATCalc extends TCalc {
+        // Tax including amortization
+        int a; // [0,100] interval
+        {
+            // @Overriden
+            int calc (int c) { return (c*a)*(1*taxV);}
+            int amtz() { return a; }
+        }
+    }
+{
+    void main()
+        TCalc c1, c2;
+        int cost, price;
+    {
+        cost = 1000;
+        c1 = new TCalc; c1.taxV = 10;
+        c2 = new ATCalc; c2.taxV = 18;
+        print(c1.calc(cost));
+        print(c2.calc(cost));
+    }
+}

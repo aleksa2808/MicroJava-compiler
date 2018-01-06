@@ -46,7 +46,7 @@ a{
 class C extends B{
 	A theA;
 	{
-		void glupost(int m) int i; bool c; {  //sintaksna, oporavak do ) i do {
+		void glupost(int m) int i; bool c; {
 			return i + c;                     //semanticka, c nije deklarisano, ne poklapaju se tipovi,
 			return i;                                //metoda nema povratnu vrednost...
 		}

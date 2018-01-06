@@ -24,8 +24,6 @@ program test32
 	}
 	
 	int main() bool b; char p;{            // semanticka, povratni tip main-a mora biti void
-											// sintaksna, oporavak do {
-	
 		read(xc); read(yc);                  // semanticka, yc nije deklarisan, nekorektan tip za read
 		
 		a = distance(cccc, ya, xb, yb);      // semanticka, tip prvog parametra se ne poklapa
