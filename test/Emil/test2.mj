@@ -22,15 +22,12 @@ int a, $r, %5r-ty;
     int f(irt, int a) {
         
     }
-    void maid() char c^c; int rtar[] {
+    void maid() char cc; int rtar[]; {
         
         a = %rtar;
         if(34) a++;
         
-        for(a=0;$$$;) a--;
-        rtar[@23];
-        
-        dls asdf = new dls;
+        asdf = new dls;
         asdf.metoda(!@#$);
         
     }

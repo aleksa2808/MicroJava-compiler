@@ -101,7 +101,16 @@ public class SemanticAnalyzer extends VisitorAdaptor {
                 kind = Obj.Var;
             }
 
-            return Tab.insert(kind, varName, varType);
+            Obj temp = Tab.insert(kind, varName, varType);
+
+            if (temp.getKind() == Obj.Var) {
+                if (temp.getLevel() == 0) {
+                    globalVarCnt++;
+                } else if ("main".equalsIgnoreCase(currentMethod.getName())) {
+                    mainLocalVarCnt++;
+                }
+            }
+            return temp;
         } else {
             report_error("Greska na " + varLine + "(" + varName + ") vec deklarisano");
         }
@@ -248,25 +257,11 @@ public class SemanticAnalyzer extends VisitorAdaptor {
     }
 
     public void visit(VarDeclDefine_Single varDeclDefine_single) {
-        Obj temp = varInsert(varDeclDefine_single.getI1(), currentTypeObj.getType(), varDeclDefine_single.getLine());
-        if (temp != null && temp.getKind() == Obj.Var && temp.getLevel() == 0) {
-            if (temp.getLevel() == 0) {
-                globalVarCnt++;
-            } else if ("main".equalsIgnoreCase(currentMethod.getName())) {
-                mainLocalVarCnt++;
-            }
-        }
+        varInsert(varDeclDefine_single.getI1(), currentTypeObj.getType(), varDeclDefine_single.getLine());
     }
 
     public void visit(VarDeclDefine_Array varDeclDefine_array) {
-        Obj temp = varInsert(varDeclDefine_array.getI1(), new Struct(Struct.Array, currentTypeObj.getType()), varDeclDefine_array.getLine());
-        if (temp != null && temp.getKind() == Obj.Var) {
-            if (temp.getLevel() == 0) {
-                globalArrayCnt++;
-            } else if ("main".equalsIgnoreCase(currentMethod.getName())) {
-                mainLocalVarCnt++;
-            }
-        }
+        varInsert(varDeclDefine_array.getI1(), new Struct(Struct.Array, currentTypeObj.getType()), varDeclDefine_array.getLine());
     }
 
     public void visit(ClassDecl classDecl) {
@@ -539,6 +534,10 @@ public class SemanticAnalyzer extends VisitorAdaptor {
                 report_error("Greska na " + functionCall.getLine() + ": neispravan broj parametara funkcije");
             } else {
                 ArrayList<Obj> methLocalParams = new ArrayList<>(desigObj.getLocalSymbols());
+                if (desigObj.equals(currentMethod)) {
+                    // specijalni slucaj: rekurzija, lokalni simboli metode su jos u trenutnom scope-u
+                    methLocalParams = new ArrayList<>(Tab.currentScope().values());
+                }
 
                 if ("len".equals(desigObj.getName()) && !TabExt.methodScopeMap.containsKey(desigObj)) {
                     Struct arr = currentActParTypes.get(0);
@@ -584,6 +583,10 @@ public class SemanticAnalyzer extends VisitorAdaptor {
     }
 
     public void visit(Statement_Read statement_read) {
+        if ("main".equalsIgnoreCase(currentMethod.getName())) {
+            mainFuncCallCnt++;
+        }
+
         Obj desigObj = statement_read.getDesignator().obj;
         int kind = desigObj.getKind();
 
@@ -595,6 +598,10 @@ public class SemanticAnalyzer extends VisitorAdaptor {
     }
 
     public void visit(Statement_Print statement_print) {
+        if ("main".equalsIgnoreCase(currentMethod.getName())) {
+            mainFuncCallCnt++;
+        }
+
         Struct type = statement_print.getExpr().struct;
 
         if (!type.equals(Tab.intType) && !type.equals(Tab.charType) && !type.equals(TabExt.boolType)) {
@@ -603,9 +610,7 @@ public class SemanticAnalyzer extends VisitorAdaptor {
     }
 
     public void visit(Statement_Return statement_return) {
-        if (returnFound) {
-            report_error("Greska na " + statement_return.getLine() + ": dupli return iskaz");
-        } else if (currentMethod.equals(Tab.noObj)) {
+        if (currentMethod.equals(Tab.noObj)) {
             report_error("Greska na " + statement_return.getLine() + ": return iskaz van metode");
         } else {
             Struct returnType = statement_return.getOptExpr().struct;

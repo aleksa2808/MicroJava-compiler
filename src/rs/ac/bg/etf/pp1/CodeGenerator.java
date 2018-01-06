@@ -178,6 +178,7 @@ public class CodeGenerator extends VisitorAdaptor {
         for (int adr : condTrueFixupList) {
             Code.fixup(adr);
         }
+        condTrueFixupList.clear();
     }
 
     public void visit(IfDummy ifDummy) {
@@ -217,6 +218,7 @@ public class CodeGenerator extends VisitorAdaptor {
         for (int adr : condTrueFixupList) {
             Code.put2(adr, (top - adr + 1));
         }
+        condTrueFixupList.clear();
 
         for (int adr : breakFixupStack.peek()) {
             Code.fixup(adr);

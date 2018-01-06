@@ -8,8 +8,11 @@ int a;
 	{
 		if(p3)
 		{
-			for(local = 0; local < -p1 && local >= 0; local++)
+		    local = 0;
+			do {
 				print(p2);
+				local++;
+			} while(local < -p1 && local >= 0);
 		}
 	}
 	

@@ -15,7 +15,7 @@ import rs.etf.pp1.symboltable.visitors.SymbolTableVisitor;
 public class SimpleSymbolTableVisitor extends SymbolTableVisitor {
 
     protected StringBuilder output = new StringBuilder();
-    protected final String indent = "   ";
+    protected final String indent = "|      ";
     protected StringBuilder currentIndent = new StringBuilder();
 
     private int visitingClassDepth = 0;

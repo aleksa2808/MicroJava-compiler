@@ -19,10 +19,10 @@ program test
 			veci = a;
 		}
 		pom = manji;
-		for(;pom > 0;){
+		do{
 			pom = pom/x;
 			step = step*x;
-		}
+		} while (pom > 0);
 		novi = veci*step + manji;
 		print(novi);
 	}

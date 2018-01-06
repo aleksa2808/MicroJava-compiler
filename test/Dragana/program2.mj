@@ -36,6 +36,7 @@ void main() A a; C c; int i; int x[];
 	{
 	read(c.x[i]);
 	read(c.theA.x[i]);
+	i++;
 	} while(i < 5);
 	print(c.getValue(c.theA.x[0]));
 	}
