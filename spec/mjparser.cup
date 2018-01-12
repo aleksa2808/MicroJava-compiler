@@ -166,6 +166,10 @@ GlobalVarDeclDefine ::= (GlobalVarDeclDefine_Define) VarDeclDefine
                         |
                         (GlobalVarDeclDefine_Error) error:e
                         {: parser.report_info("Oporavak od greske u definiciji globalne promenljive na liniji " + eleft, null); :}
+                        |
+                        // TODO: checky checky
+                        (GlobalVarDeclDefine_ErrorBlank) /* epsilon */
+                        {: parser.report_error("Oporavak od greske u definiciji globalne promenljive [prazno]", null); :}
                         ;
 
 /*************************************************************************************

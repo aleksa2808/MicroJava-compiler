@@ -25,7 +25,7 @@ public class MJParserTest {
 //            return;
 //        }
 
-        File sourceCode = new File("test/Dragana/sveobuhvatni.mj");//args[0]);
+        File sourceCode = new File("test/Emil/test1.mj");//args[0]);
         if (!sourceCode.exists()) {
             System.out.println("Source file [" + sourceCode.getAbsolutePath() + "] not found!");
             return;

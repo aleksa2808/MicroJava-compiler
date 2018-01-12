@@ -2,7 +2,7 @@
 
 program test1
 
-int i;
+int a, 7, 7, b;
 bool ijedva;
 
 int niz[];
