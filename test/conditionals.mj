@@ -18,11 +18,11 @@ class B { int x, y; }
         do {
             n++;
             if (flag) {
-                //print('?');
+                print('?');
                 flag = false;
                 continue;
             } else {
-                //print('!');
+                print('!');
                 flag = true;
 
                 if (i < 5) {

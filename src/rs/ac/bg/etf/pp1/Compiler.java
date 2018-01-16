@@ -16,7 +16,7 @@ class Compiler {
             return;
         }
 
-        File sourceCode = new File("test/javni_test/test302.mj");//args[0]);
+        File sourceCode = new File("test/conditionals.mj");//args[0]);
         if (!sourceCode.exists()) {
             System.out.println("Source file [" + sourceCode.getAbsolutePath() + "] not found!");
             return;

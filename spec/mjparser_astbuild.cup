@@ -204,6 +204,7 @@ GlobalVarDeclDefine ::= (GlobalVarDeclDefine_Define) VarDeclDefine:V1 {: RESULT=
                         (GlobalVarDeclDefine_Error) error:e
                         {: parser.report_info("Oporavak od greske u definiciji globalne promenljive na liniji " + eleft, null); :} {: RESULT=new GlobalVarDeclDefine_Error(); :}
                         |
+                        // TODO: checky checky
                         (GlobalVarDeclDefine_ErrorBlank) /* epsilon */
                         {: parser.report_error("Oporavak od greske u definiciji globalne promenljive [prazno]", null); :} {: RESULT=new GlobalVarDeclDefine_ErrorBlank(); :}
                         ;

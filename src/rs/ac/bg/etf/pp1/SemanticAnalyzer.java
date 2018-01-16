@@ -92,7 +92,7 @@ public class SemanticAnalyzer extends VisitorAdaptor {
         }
     }
 
-    private Obj varInsert(String varName, Struct varType, int varLine) {
+    private void varInsert(String varName, Struct varType, int varLine) {
         if (Tab.currentScope().findSymbol(varName) == null) {
             int kind;
             if (!currentClass.equals(Tab.noObj) && currentMethod.equals(Tab.noObj)) {
@@ -104,18 +104,21 @@ public class SemanticAnalyzer extends VisitorAdaptor {
             Obj temp = Tab.insert(kind, varName, varType);
 
             if (temp.getKind() == Obj.Var) {
-                if (temp.getLevel() == 0) {
-                    globalVarCnt++;
-                } else if ("main".equalsIgnoreCase(currentMethod.getName())) {
-                    mainLocalVarCnt++;
+                if (temp.getType().getKind() == Struct.Array) {
+                    if (temp.getLevel() == 0) {
+                        globalArrayCnt++;
+                    }
+                } else {
+                    if (temp.getLevel() == 0) {
+                        globalVarCnt++;
+                    } else if ("main".equalsIgnoreCase(currentMethod.getName())) {
+                        mainLocalVarCnt++;
+                    }
                 }
             }
-            return temp;
         } else {
             report_error("Greska na " + varLine + "(" + varName + ") vec deklarisano");
         }
-
-        return null;
     }
 
     private void formParInsert(String formParName, Struct formParType, int formParLine) {
