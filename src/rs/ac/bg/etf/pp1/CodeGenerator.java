@@ -301,6 +301,15 @@ public class CodeGenerator extends VisitorAdaptor {
     }
 
     public void visit(DesignatorStatement_Inc designatorStatement_inc) {
+        // mrzi me da testiram, ali ovde postoji bug
+        // moguce resenje je proveriti tip objekta, pa uraditi dup ili dup2
+        // da bi iz tog duplikata izvukli vrednost, bez uklanjanja potrebnih
+        // informacija sa esteka
+        // primer bug-a: niz[i]++
+        // na pocetku su na steku -> adr idx
+        // kada se pozove Code.load, izvrsava se instrukcija aload
+        // pa se ove vrednosti uklanjaju, te posle nemamo vrednosti
+        // za astore
 	    Code.load(designatorStatement_inc.getDesignator().obj);
 	    Code.loadConst(1);
 	    Code.put(Code.add);

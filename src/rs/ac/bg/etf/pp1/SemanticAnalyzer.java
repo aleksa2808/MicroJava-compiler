@@ -172,6 +172,12 @@ public class SemanticAnalyzer extends VisitorAdaptor {
     }
 
     private boolean assignableTo(Struct srcType, Struct dstType) {
+//        assignableTo moze dovesti do stack overflowa, jer se proveravaju lokalni simboli objekata
+//        a to nije pametno kada obilazimo klasne metode koje imaju 'this' u sebi
+//        if (srcType == dstType) {
+//            return true;
+//        }
+
         if (srcType.assignableTo(dstType)) {
             return true;
         }
