@@ -10,11 +10,29 @@ Cilj ovog projekta je izrada kompajlera za mikrojavu. Kompajler se generise iz 3
 ## Instrukcije za pokretanje rešenja
 
 Nakon pozicioniranja u src folder:
-1.	Generator lexera: `java -cp ../lib/JFlex.jar JFlex.Main -d rs\ac\bg\etf\pp1 ..\spec\mjlexer.flex`
-2.	Generator parsera:  `java -cp ../lib/cup_v10k.jar java_cup.Main -destdir rs\ac\bg\etf\pp1 -parser MJParser -ast rs.ac.bg.etf.pp1.ast -buildtree ..\spec\mjparser.cup`
-3.	Kompajliranje mikrojava  programa: `java -cp ..\MJCompiler.jar rs.ac.bg.etf.pp1.Compiler <.mj_file_src> <.obj_file_dst>`
-4.	Disasm: `java -cp ..\lib\mj-runtime.jar rs.etf.pp1.mj.runtime.disasm <.obj_file_src>`
-5.	Run/Debug: `java -cp ..\lib\mj-runtime.jar rs.etf.pp1.mj.runtime.Run [-debug] <.obj_file_src>`
+1.	Generisanje lexera: 
+
+  `java -cp ../lib/JFlex.jar JFlex.Main -d rs\ac\bg\etf\pp1 ..\spec\mjlexer.flex`
+
+2.	Generisanje parsera:  
+
+  `java -cp ../lib/cup_v10k.jar java_cup.Main -destdir rs\ac\bg\etf\pp1 -parser MJParser -ast rs.ac.bg.etf.pp1.ast -buildtree ..\spec\mjparser.cup`
+  
+3. Kompilacija projekta:
+
+  `javac -cp ..\lib\* rs\ac\bg\etf\pp1\ast\*.java rs\ac\bg\etf\pp1\util\*.java rs\ac\bg\etf\pp1\*.java`
+  
+3.	Kompajliranje .mj programa: 
+
+  `java -cp ..\lib\*;. rs.ac.bg.etf.pp1.Compiler <.mj_file_src> <.obj_file_dst>`
+  
+4.	Disasm: 
+
+  `java -cp ..\lib\mj-runtime.jar rs.etf.pp1.mj.runtime.disasm <.obj_file_src>`
+
+5.	Run/Debug: 
+
+  `java -cp ..\lib\mj-runtime.jar rs.etf.pp1.mj.runtime.Run [-debug] <.obj_file_src>`
 
 ## Opis priloženih test primera
 
